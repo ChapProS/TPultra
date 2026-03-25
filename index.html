@@ -6,103 +6,209 @@
     <title>Telegram Profiler MAX</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         [x-cloak] { display: none !important; }
         body { background-color: #1a1a1a; color: #e5e7eb; font-family: 'Inter', sans-serif; }
         .tg-card { background-color: #242424; border: 1px solid #333; }
         .tg-accent { color: #00FF9D; }
-        .tg-bg-accent { background-color: #00FF9D; }
         .progress-bar { background-color: #333; border-radius: 9999px; overflow: hidden; }
-        .progress-fill { height: 100%; transition: width 0.9s ease-out; }
+        .progress-fill { height: 100%; width: 0%; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
+        textarea::-webkit-scrollbar { width: 8px; }
+        textarea::-webkit-scrollbar-track { background: #1a1a1a; border-radius: 10px; }
+        textarea::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        textarea::-webkit-scrollbar-thumb:hover { background: #00FF9D; }
     </style>
 </head>
-<body x-data="profiler()" x-init="init()" x-cloak>
+<body x-data="profiler()" x-init="initApp()" x-cloak>
 
-    <div class="sticky top-0 z-50 bg-[#1a1a1a]/90 backdrop-blur-md border-b border-[#333] px-6 py-4 flex justify-between items-center">
+    <div class="sticky top-0 z-50 bg-[#1a1a1a]/90 backdrop-blur-md border-b border-[#333] px-6 py-4 flex justify-between items-center shadow-md">
         <h1 class="text-2xl font-bold flex items-center gap-3">
             <i class="fa-solid fa-brain tg-accent"></i>
-            Telegram Profiler <span class="text-sm font-mono opacity-50">MAX</span>
+            Telegram Profiler <span class="text-sm font-mono opacity-50 text-white bg-red-600 px-2 py-0.5 rounded">OSINT MAX</span>
         </h1>
-        <button @click="reset()" class="px-4 py-2 border border-red-500/30 text-red-400 hover:bg-red-500/10 rounded-xl">
-            Сбросить
+        <button type="button" @click="resetToStart()" class="px-5 py-2 border border-[#333] text-gray-300 rounded-xl hover:bg-[#333] transition-colors">
+            На главную
         </button>
     </div>
 
-    <div class="max-w-4xl mx-auto p-6">
+    <div class="max-w-5xl mx-auto p-6 space-y-8">
 
-        <!-- КРОК 1 -->
-        <div x-show="step === 1 && !promptCopied" class="space-y-6">
-            <div>
-                <label class="block text-sm font-semibold mb-2">Имя / Никнейм</label>
-                <input x-model="personName" type="text" class="w-full bg-[#242424] border border-[#333] rounded-2xl px-5 py-4 focus:ring-2 focus:ring-[#00FF9D] focus:outline-none" placeholder="Например: Сергей_крипто">
+        <div x-show="step === 1" x-transition.opacity.duration.500ms class="grid md:grid-cols-3 gap-8">
+            
+            <div class="md:col-span-2 space-y-6">
+                <div class="tg-card p-6 rounded-3xl relative">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-crosshairs tg-accent"></i> Новая цель</h2>
+                    
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold mb-2 text-gray-400">Имя / Никнейм (опционально)</label>
+                        <input x-model="personName" type="text" class="w-full bg-[#1a1a1a] border border-[#333] rounded-2xl px-5 py-4 focus:ring-2 focus:ring-[#00FF9D] focus:outline-none transition-all" placeholder="Например: Сергей_крипто">
+                    </div>
+
+                    <div class="mb-6 relative">
+                        <div class="flex justify-between items-end mb-2">
+                            <label class="block text-sm font-semibold text-gray-400">Сырые данные (комментарии / сообщения)</label>
+                            
+                            <button type="button" @click="cleanLogs()" class="text-xs font-mono bg-[#333] hover:bg-[#00FF9D] hover:text-black text-gray-300 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Очистить логи
+                            </button>
+                        </div>
+                        
+                        <textarea x-model="comments" rows="8" class="w-full bg-[#1a1a1a] border border-[#333] rounded-3xl p-5 focus:ring-2 focus:ring-[#00FF9D] focus:outline-none resize-y transition-all" placeholder="Вставьте сюда сырой экспорт из Telegram..."></textarea>
+                        
+                        <div x-show="cleanStatus" x-transition class="absolute bottom-4 right-4 bg-[#00FF9D]/20 border border-[#00FF9D]/50 text-[#00FF9D] text-xs px-3 py-1.5 rounded-xl flex items-center gap-2 backdrop-blur-sm pointer-events-none">
+                            <i class="fa-solid fa-check"></i> <span x-text="cleanStatus"></span>
+                        </div>
+                    </div>
+
+                    <div x-show="errorMsg" x-transition class="mb-4 p-4 bg-red-900/30 border border-red-500/50 rounded-2xl text-red-400 text-sm flex items-center gap-3">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span x-text="errorMsg"></span>
+                    </div>
+
+                    <button type="button" @click="copyPrompt()" 
+                            class="w-full bg-[#00FF9D] hover:bg-emerald-400 text-black font-black py-5 rounded-3xl text-lg transition-all flex justify-center items-center gap-2 shadow-[0_0_20px_rgba(0,255,157,0.2)]">
+                        <i class="fa-solid fa-copy"></i>
+                        СКОПИРОВАТЬ ПРОМПТ
+                    </button>
+                </div>
+
+                <div x-show="promptCopied" x-transition.opacity.duration.500ms class="tg-card p-6 rounded-3xl border border-[#00FF9D]/30 space-y-4">
+                    <div class="text-[#00FF9D] flex items-center gap-3 mb-2">
+                        <i class="fa-solid fa-check-circle text-xl"></i>
+                        <p class="font-bold">Промпт скопирован! Вставьте JSON-ответ ниже:</p>
+                    </div>
+                    <textarea x-model="grokResponse" rows="6" class="w-full bg-[#1a1a1a] border border-[#333] rounded-2xl p-5 font-mono text-sm focus:ring-2 focus:ring-[#00FF9D] focus:outline-none" placeholder='{"folk_archetype": "...", ...}'></textarea>
+                    
+                    <button type="button" @click="parseProfile()" 
+                            class="w-full py-4 border-2 border-[#00FF9D] text-[#00FF9D] font-bold rounded-2xl hover:bg-[#00FF9D] hover:text-black transition-all flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-microchip"></i>
+                        АНАЛИЗИРОВАТЬ
+                    </button>
+                </div>
             </div>
 
-            <div>
-                <label class="block text-sm font-semibold mb-2">Комментарии из Telegram</label>
-                <textarea x-model="comments" class="w-full h-72 bg-[#242424] border border-[#333] rounded-3xl p-5 focus:ring-2 focus:ring-[#00FF9D] focus:outline-none" placeholder="Вставьте все комментарии..."></textarea>
+            <div class="md:col-span-1">
+                <div class="tg-card p-6 rounded-3xl h-full border border-[#333]">
+                    <h3 class="font-bold mb-4 flex items-center gap-2 text-gray-300">
+                        <i class="fa-solid fa-clock-rotate-left"></i> История целей
+                    </h3>
+                    
+                    <template x-if="history.length === 0">
+                        <p class="text-sm text-gray-500 italic text-center py-10">История пуста</p>
+                    </template>
+                    
+                    <div class="space-y-3">
+                        <template x-for="(item, index) in history" :key="item.id">
+                            <div @click="loadFromHistory(index)" class="p-3 bg-[#1a1a1a] border border-[#333] rounded-xl cursor-pointer hover:border-[#00FF9D] transition-colors group">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-bold text-sm group-hover:text-[#00FF9D] transition-colors" x-text="item.name"></span>
+                                    <span class="text-xs text-gray-500" x-text="item.date"></span>
+                                </div>
+                                <div class="text-xs text-gray-400 truncate" x-text="item.data.folk_archetype"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
             </div>
-
-            <button @click="getProfilePrompt()" 
-                    class="w-full bg-[#00FF9D] text-black font-black py-5 rounded-3xl text-lg hover:scale-105 transition-all">
-                ПОЛУЧИТЬ МАКСИМАЛЬНЫЙ ПРОФИЛЬ
-            </button>
         </div>
 
-        <!-- КРОК 1.5 – Вставка відповіді Grok -->
-        <div x-show="step === 1 && promptCopied" class="mt-8 space-y-4">
-            <div class="p-4 bg-green-900/20 border border-green-500/30 rounded-2xl text-green-400">
-                Промпт скопирован! Вставьте его в Grok и вставьте ответ ниже:
-            </div>
-            <textarea x-model="grokResponse" class="w-full h-48 bg-[#242424] border border-[#333] rounded-3xl p-5 font-mono text-sm focus:ring-2 focus:ring-[#00FF9D] focus:outline-none" placeholder="Вставьте сюда полный JSON от Grok..."></textarea>
-            <button @click="parseProfile()" 
-                    class="w-full border-2 border-[#00FF9D] text-[#00FF9D] font-bold py-4 rounded-3xl hover:bg-[#00FF9D] hover:text-black transition-all">
-                РАЗОБРАТЬ ПРОФИЛЬ
-            </button>
-        </div>
-
-        <!-- КРОК 2 -->
-        <div x-show="step === 2" class="space-y-8">
-            <h2 class="text-3xl font-black" x-text="personName || 'Без имени'"></h2>
-
-            <!-- Прогресс точності -->
-            <div class="tg-card p-5 rounded-2xl">
-                <div class="flex justify-between mb-2">
-                    <span>Точность анализа</span>
-                    <span class="font-bold" :class="accuracy >= 75 ? 'text-green-400' : accuracy >= 50 ? 'text-yellow-400' : 'text-red-400'" x-text="accuracy + '%'"></span>
+        <div x-show="step === 2" x-transition.opacity.duration.800ms class="space-y-6">
+            
+            <div id="export-content" class="space-y-6 bg-[#1a1a1a] p-2">
+                <div class="flex items-center justify-between border-b border-[#333] pb-4">
+                    <div>
+                        <p class="text-xs font-mono text-gray-500 mb-1">ОБЪЕКТ АНАЛИЗА</p>
+                        <h2 class="text-4xl font-black uppercase tracking-wider" x-text="personName || 'АНОНИМ'"></h2>
+                    </div>
+                    <i class="fa-solid fa-fingerprint text-4xl text-[#333]"></i>
                 </div>
-                <div class="progress-bar h-3">
-                    <div class="progress-fill" :class="accuracy >= 75 ? 'bg-green-500' : accuracy >= 50 ? 'bg-yellow-500' : 'bg-red-500'" :style="'width:' + accuracy + '%'"></div>
-                </div>
-            </div>
 
-            <!-- Головна картка -->
-            <div class="tg-card p-8 rounded-3xl border-l-8 border-[#00FF9D]">
-                <div class="flex gap-6">
-                    <div class="w-24 h-24 rounded-3xl bg-[#00FF9D] flex items-center justify-center text-6xl text-black">
+                <div class="tg-card p-6 rounded-3xl border-l-4 border-[#00FF9D] flex items-center gap-6">
+                    <div class="w-20 h-20 bg-[#00FF9D]/10 rounded-2xl flex items-center justify-center text-4xl tg-accent">
                         <i class="fa-solid" :class="getFolkIcon()"></i>
                     </div>
                     <div>
-                        <h1 class="text-4xl font-black" x-text="data.folk_archetype"></h1>
-                        <p class="text-[#00FF9D] text-xl" x-text="data.scientific_mapping"></p>
+                        <h1 class="text-2xl font-black mb-1 uppercase" x-text="data?.folk_archetype"></h1>
+                        <p class="text-gray-400 text-sm leading-relaxed" x-text="data?.scientific_mapping"></p>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="tg-card p-6 rounded-3xl flex flex-col items-center">
+                        <h3 class="font-bold mb-4 w-full text-left text-lg flex items-center gap-2">
+                            <i class="fa-solid fa-chart-pie tg-accent"></i> Большая пятерка
+                        </h3>
+                        <div class="relative w-full max-w-[300px] aspect-square">
+                            <canvas id="radarChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="tg-card p-6 rounded-3xl border border-red-900/30 flex flex-col justify-center">
+                        <h3 class="font-bold mb-6 text-lg text-red-400 flex items-center gap-2">
+                            <i class="fa-solid fa-skull"></i> Темная триада
+                        </h3>
+                        <template x-if="data?.darkTriad">
+                            <div class="space-y-5 w-full">
+                                <template x-for="(val, key) in data.darkTriad" :key="key">
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-2">
+                                            <span x-text="translateKey(key)" class="font-medium text-gray-300"></span>
+                                            <span class="text-red-400 font-mono" x-text="val + '%'"></span>
+                                        </div>
+                                        <div class="progress-bar h-2 bg-black">
+                                            <div class="progress-fill bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.6)]" :style="`width: ${animateBars ? val : 0}%`"></div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="tg-card p-6 rounded-3xl border border-orange-500/30">
+                        <h3 class="font-bold mb-4 text-orange-400 flex items-center gap-2">
+                            <i class="fa-solid fa-crosshairs"></i> Уязвимости и триггеры
+                        </h3>
+                        <ul class="space-y-3">
+                            <template x-for="(vuln, idx) in data?.vulnerabilities" :key="idx">
+                                <li class="text-sm text-gray-300 flex items-start gap-3">
+                                    <i class="fa-solid fa-angle-right text-orange-500 mt-1 text-xs"></i>
+                                    <span x-text="vuln"></span>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+
+                    <div class="tg-card p-6 rounded-3xl border border-blue-500/30">
+                        <h3 class="font-bold mb-4 text-blue-400 flex items-center gap-2">
+                            <i class="fa-solid fa-chess-knight"></i> Векторы влияния (Стиль коммуникации)
+                        </h3>
+                        <div class="space-y-4">
+                            <div>
+                                <span class="text-xs text-gray-500 uppercase font-bold tracking-wider">Доминирующий стиль:</span>
+                                <p class="text-sm text-gray-200 mt-1" x-text="data?.communication_style?.primary_mode"></p>
+                            </div>
+                            <div>
+                                <span class="text-xs text-gray-500 uppercase font-bold tracking-wider">Стратегия переговоров:</span>
+                                <p class="text-sm text-blue-100 mt-1 bg-blue-900/20 p-3 rounded-xl border border-blue-500/20 leading-relaxed" x-text="data?.communication_style?.influence_strategy"></p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Повідомлення -->
-            <div class="grid gap-4">
-                <template x-for="(msg, type) in data.messages" :key="type">
-                    <div class="tg-card p-6 rounded-3xl">
-                        <p class="text-sm mb-4" x-text="msg"></p>
-                        <button @click="copy(msg)" class="w-full py-3 bg-[#333] hover:bg-[#00FF9D] hover:text-black rounded-2xl text-sm font-bold transition-all">
-                            Скопировать
-                        </button>
-                    </div>
-                </template>
+            <div class="flex gap-4">
+                <button type="button" @click="downloadPDF()" class="w-1/2 py-4 bg-[#00FF9D] text-black font-bold rounded-2xl hover:bg-emerald-400 transition-colors flex justify-center items-center gap-2 shadow-lg">
+                    <i class="fa-solid fa-file-pdf"></i> ЭКСПОРТ В PDF
+                </button>
+                <button type="button" @click="resetToStart()" class="w-1/2 py-4 border border-[#333] rounded-2xl hover:bg-[#333] transition-colors font-bold text-gray-300">
+                    НОВЫЙ АНАЛИЗ
+                </button>
             </div>
-
-            <button @click="resetToStep1()" class="w-full py-4 border border-[#333] rounded-3xl hover:bg-[#333] transition-all">Новый анализ</button>
         </div>
     </div>
 
@@ -115,81 +221,285 @@
                 grokResponse: '',
                 promptCopied: false,
                 data: null,
-                accuracy: 0,
+                errorMsg: '',
+                cleanStatus: '',
+                animateBars: false,
+                chartInstance: null,
+                history: [],
 
-                init() {
-                    console.log('Telegram Profiler MAX initialized');
+                initApp() {
+                    this.loadHistory();
                 },
 
-                getProfilePrompt() {
-                    if (!this.comments.trim()) {
-                        alert("Вставьте комментарии!");
+                // === НОВАЯ ФУНКЦИЯ: САНИТАР ЛОГОВ ===
+                cleanLogs() {
+                    if (!this.comments) return;
+
+                    const originalLength = this.comments.length;
+                    let text = this.comments;
+
+                    // 1. Удаляем даты и время в формате Telegram Desktop: [25.03.2026 21:55]
+                    text = text.replace(/\[\d{2}\.\d{2}\.\d{4}\s\d{2}:\d{2}\]/g, '');
+                    
+                    // 2. Удаляем стандартные таймстемпы: [12:34], 12:34:56, [12:34:56]
+                    text = text.replace(/\[?\d{1,2}:\d{2}(:\d{2})?\]?/g, '');
+                    
+                    // 3. Удаляем даты: 25.03.2026, 2026-03-25
+                    text = text.replace(/\b\d{2,4}[./-]\d{2}[./-]\d{2,4}\b/g, '');
+                    
+                    // 4. Удаляем имена пользователей перед двоеточием в начале строки (например, "Иван Иванов:")
+                    text = text.replace(/^[A-Za-zА-Яа-яЁё0-9_ -]{2,30}:/gm, '');
+
+                    // 5. Удаляем пустые строки, которые остались после чистки
+                    text = text.replace(/^\s*[\r\n]/gm, '');
+                    
+                    // 6. Финальная обрезка лишних пробелов
+                    text = text.trim();
+
+                    this.comments = text;
+                    const cleanedChars = originalLength - this.comments.length;
+
+                    if (cleanedChars > 0) {
+                        this.errorMsg = '';
+                        this.cleanStatus = `Удалено ${cleanedChars} симв. мусора`;
+                        // Скрываем плашку через 3 секунды
+                        setTimeout(() => {
+                            this.cleanStatus = '';
+                        }, 3000);
+                    } else {
+                        this.cleanStatus = 'Лог уже чист!';
+                        setTimeout(() => this.cleanStatus = '', 2000);
+                    }
+                },
+
+                loadHistory() {
+                    const saved = localStorage.getItem('tgProfilerHistoryMax');
+                    if (saved) {
+                        try {
+                            this.history = JSON.parse(saved);
+                        } catch (e) {
+                            this.history = [];
+                        }
+                    }
+                },
+
+                saveToHistory() {
+                    const newEntry = {
+                        id: Date.now(),
+                        name: this.personName || 'Аноним',
+                        data: this.data,
+                        date: new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' })
+                    };
+                    
+                    this.history.unshift(newEntry);
+                    if (this.history.length > 10) {
+                        this.history.pop();
+                    }
+                    localStorage.setItem('tgProfilerHistoryMax', JSON.stringify(this.history));
+                },
+
+                loadFromHistory(index) {
+                    const entry = this.history[index];
+                    this.personName = entry.name;
+                    this.data = entry.data;
+                    this.errorMsg = '';
+                    this.goToStep2();
+                },
+
+                copyPrompt() {
+                    this.errorMsg = '';
+                    if (!this.comments || this.comments.trim().length < 30) {
+                        this.errorMsg = "Недостаточно данных. Вставьте хотя бы пару предложений для точного анализа.";
                         return;
                     }
-                    const prompt = `You are an elite psychological profiling system specialized in analyzing Telegram comments to create detailed personality profiles. Analyze the following comments and provide a comprehensive JSON profile.
 
-Comments: ${this.comments}
+                    const prompt = `Act as an elite psychological profiler, OSINT analyst, and behavioral expert. 
+I will provide you with messages written by a person named "${this.personName || 'Target'}". 
+Your task is to analyze their psychotype, blind spots, and behavioral patterns to create an actionable intelligence dossier.
 
-Return a JSON object with this structure:
+Target's raw data:
+"""
+${this.comments}
+"""
+
+Based on the text above, generate a deep psychological profile. 
+You MUST respond STRICTLY with a valid JSON object. Do not include any markdown, code blocks, or explanations outside the JSON.
+All text fields in your JSON response MUST be written in Russian.
+
+Use exactly this JSON schema:
 {
-  "folk_archetype": "archetype name",
-  "scientific_mapping": "psychological mapping",
-  "messages": {
-    "main": "main message",
-    "secondary": "secondary message"
+  "folk_archetype": "Choose ONLY ONE from this list (in Russian): Активный долбоёб, Пассивный долбоёб, Жлоб, Плуг, Профессор, Бэтмен, Чемпион, Работяга",
+  "scientific_mapping": "Write 2-3 sentences explaining this behavior in professional psychological terms (e.g., compensation mechanisms, cognitive biases).",
+  "bigFive": {
+    "Openness": <number 0-100>,
+    "Conscientiousness": <number 0-100>,
+    "Extraversion": <number 0-100>,
+    "Agreeableness": <number 0-100>,
+    "Neuroticism": <number 0-100>
+  },
+  "darkTriad": {
+    "Narcissism": <number 0-100>,
+    "Machiavellianism": <number 0-100>,
+    "Psychopathy": <number 0-100>
+  },
+  "vulnerabilities": [
+    "<Provide 3 to 4 specific behavioral blind spots, emotional triggers, or psychological vulnerabilities of this person>"
+  ],
+  "communication_style": {
+    "primary_mode": "<Briefly describe their dominant communication style and decision-making logic>",
+    "influence_strategy": "<Actionable advice: how to structure arguments, what tone to use, and which logical or emotional levers to press to effectively persuade or manipulate them in negotiations>"
   }
 }`;
-                    navigator.clipboard.writeText(prompt);
-                    this.promptCopied = true;
-                    this.accuracy = Math.min(95, Math.floor(this.comments.length / 20));
-                    alert("Промпт скопирован! Вставьте ответ Grok ниже.");
+                    
+                    navigator.clipboard.writeText(prompt).then(() => {
+                        this.promptCopied = true;
+                    }).catch(err => {
+                        this.errorMsg = "Не удалось скопировать текст. Ваш браузер блокирует буфер обмена.";
+                    });
                 },
 
                 parseProfile() {
+                    this.errorMsg = '';
                     try {
-                        const clean = this.grokResponse.replace(/```json|```/g, '').trim();
-                        this.data = JSON.parse(clean);
-                        this.step = 2;
-                    } catch (e) {
-                        alert("Ошибка JSON. Убедитесь, что вставили полный ответ от Grok.");
-                        console.error(e);
+                        let jsonStr = this.grokResponse.trim();
+                        const startIdx = jsonStr.indexOf('{');
+                        const endIdx = jsonStr.lastIndexOf('}');
+                        
+                        if (startIdx === -1 || endIdx === -1) {
+                            throw new Error("В ответе не найден формат JSON.");
+                        }
+                        
+                        jsonStr = jsonStr.substring(startIdx, endIdx + 1);
+                        this.data = JSON.parse(jsonStr);
+                        
+                        this.saveToHistory();
+                        this.goToStep2();
+
+                    } catch(e) {
+                        this.errorMsg = "Не удалось разобрать JSON. Убедитесь, что вы скопировали ответ нейросети целиком.";
                     }
                 },
 
-                getFolkIcon() {
-                    const icons = {
-                        'Активный долбоёб': 'fa-bolt-lightning',
-                        'Пассивный долбоёб': 'fa-heart-pulse',
-                        'Жлоб': 'fa-coins',
-                        'Плуг': 'fa-trowel',
-                        'Профессор': 'fa-book-open-reader',
-                        'Бэтмен': 'fa-mask',
-                        'Чемпион': 'fa-crown',
-                        'Работяга': 'fa-gears'
+                goToStep2() {
+                    this.step = 2;
+                    this.$nextTick(() => {
+                        this.renderRadarChart();
+                        setTimeout(() => { this.animateBars = true; }, 100);
+                    });
+                },
+
+                renderRadarChart() {
+                    const ctx = document.getElementById('radarChart');
+                    if (this.chartInstance) {
+                        this.chartInstance.destroy();
+                    }
+
+                    Chart.defaults.animation = false;
+
+                    this.chartInstance = new Chart(ctx, {
+                        type: 'radar',
+                        data: {
+                            labels: ['Открытость', 'Добросовестность', 'Экстраверсия', 'Доброжелательность', 'Нейротизм'],
+                            datasets: [{
+                                label: 'Big 5',
+                                data: [
+                                    this.data.bigFive.Openness,
+                                    this.data.bigFive.Conscientiousness,
+                                    this.data.bigFive.Extraversion,
+                                    this.data.bigFive.Agreeableness,
+                                    this.data.bigFive.Neuroticism
+                                ],
+                                backgroundColor: 'rgba(0, 255, 157, 0.2)',
+                                borderColor: '#00FF9D',
+                                pointBackgroundColor: '#00FF9D',
+                                pointBorderColor: '#fff',
+                                pointHoverBackgroundColor: '#fff',
+                                pointHoverBorderColor: '#00FF9D',
+                                borderWidth: 2,
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                r: {
+                                    angleLines: { color: '#333' },
+                                    grid: { color: '#333' },
+                                    pointLabels: { color: '#e5e7eb', font: { size: 11, family: 'Inter' } },
+                                    ticks: { display: false, min: 0, max: 100, stepSize: 20 }
+                                }
+                            },
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    backgroundColor: '#242424',
+                                    titleColor: '#00FF9D',
+                                    bodyColor: '#e5e7eb',
+                                    borderColor: '#333',
+                                    borderWidth: 1
+                                }
+                            },
+                            maintainAspectRatio: false
+                        }
+                    });
+                },
+
+                downloadPDF() {
+                    const element = document.getElementById('export-content');
+                    const opt = {
+                        margin:       10,
+                        filename:     `Dossier_${this.personName || 'Target'}.pdf`,
+                        image:        { type: 'jpeg', quality: 0.98 },
+                        html2canvas:  { scale: 2, backgroundColor: '#1a1a1a', useCORS: true },
+                        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
                     };
-                    return icons[this.data?.folk_archetype] || 'fa-user';
+                    
+                    const oldAnimate = this.animateBars;
+                    this.animateBars = true; 
+                    
+                    html2pdf().set(opt).from(element).save().then(() => {
+                        this.animateBars = oldAnimate;
+                    });
                 },
 
-                copy(text) {
-                    navigator.clipboard.writeText(text);
-                    alert("Скопировано!");
+                getFolkIcon() {
+                    const archetype = this.data?.folk_archetype || '';
+                    const map = {
+                        'активный долбоёб': 'fa-bolt-lightning',
+                        'пассивный долбоёб': 'fa-couch',
+                        'жлоб': 'fa-sack-dollar',
+                        'плуг': 'fa-tractor',
+                        'профессор': 'fa-user-graduate',
+                        'бэтмен': 'fa-mask',
+                        'чемпион': 'fa-trophy',
+                        'работяга': 'fa-hammer'
+                    };
+                    return map[archetype.toLowerCase()] || 'fa-user-astronaut';
                 },
 
-                reset() {
-                    this.step = 1;
-                    this.promptCopied = false;
-                    this.grokResponse = '';
-                    this.data = null;
-                    this.personName = '';
-                    this.comments = '';
-                    this.accuracy = 0;
+                translateKey(key) {
+                    const dict = {
+                        'Narcissism': 'Нарциссизм',
+                        'Machiavellianism': 'Макиавеллизм',
+                        'Psychopathy': 'Психопатия'
+                    };
+                    return dict[key] || key;
                 },
 
-                resetToStep1() {
-                    this.step = 1;
-                    this.promptCopied = false;
-                    this.grokResponse = '';
-                    this.data = null;
+                resetToStart() {
+                    this.animateBars = false;
+                    setTimeout(() => {
+                        this.step = 1;
+                        this.personName = '';
+                        this.comments = '';
+                        this.grokResponse = '';
+                        this.promptCopied = false;
+                        this.data = null;
+                        this.errorMsg = '';
+                        this.cleanStatus = '';
+                        if (this.chartInstance) {
+                            this.chartInstance.destroy();
+                            this.chartInstance = null;
+                        }
+                    }, 300);
                 }
             }
         }
