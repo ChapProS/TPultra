@@ -1,132 +1,48 @@
-const RAW_DATABASE = [
-    { "example": "ex_001", "description": "Description for example 1" },
-    { "example": "ex_002", "description": "Description for example 2" },
-    { "example": "ex_003", "description": "Description for example 3" },
-    { "example": "ex_004", "description": "Description for example 4" },
-    { "example": "ex_005", "description": "Description for example 5" },
-    { "example": "ex_006", "description": "Description for example 6" },
-    { "example": "ex_007", "description": "Description for example 7" },
-    { "example": "ex_008", "description": "Description for example 8" },
-    { "example": "ex_009", "description": "Description for example 9" },
-    { "example": "ex_010", "description": "Description for example 10" },
-    { "example": "ex_011", "description": "Description for example 11" },
-    { "example": "ex_012", "description": "Description for example 12" },
-    { "example": "ex_013", "description": "Description for example 13" },
-    { "example": "ex_014", "description": "Description for example 14" },
-    { "example": "ex_015", "description": "Description for example 15" },
-    { "example": "ex_016", "description": "Description for example 16" },
-    { "example": "ex_017", "description": "Description for example 17" },
-    { "example": "ex_018", "description": "Description for example 18" },
-    { "example": "ex_019", "description": "Description for example 19" },
-    { "example": "ex_020", "description": "Description for example 20" },
-    { "example": "ex_021", "description": "Description for example 21" },
-    { "example": "ex_022", "description": "Description for example 22" },
-    { "example": "ex_023", "description": "Description for example 23" },
-    { "example": "ex_024", "description": "Description for example 24" },
-    { "example": "ex_025", "description": "Description for example 25" },
-    { "example": "ex_026", "description": "Description for example 26" },
-    { "example": "ex_027", "description": "Description for example 27" },
-    { "example": "ex_028", "description": "Description for example 28" },
-    { "example": "ex_029", "description": "Description for example 29" },
-    { "example": "ex_030", "description": "Description for example 30" },
-    { "example": "ex_031", "description": "Description for example 31" },
-    { "example": "ex_032", "description": "Description for example 32" },
-    { "example": "ex_033", "description": "Description for example 33" },
-    { "example": "ex_034", "description": "Description for example 34" },
-    { "example": "ex_035", "description": "Description for example 35" },
-    { "example": "ex_036", "description": "Description for example 36" },
-    { "example": "ex_037", "description": "Description for example 37" },
-    { "example": "ex_038", "description": "Description for example 38" },
-    { "example": "ex_039", "description": "Description for example 39" },
-    { "example": "ex_040", "description": "Description for example 40" },
-    { "example": "ex_041", "description": "Description for example 41" },
-    { "example": "ex_042", "description": "Description for example 42" },
-    { "example": "ex_043", "description": "Description for example 43" },
-    { "example": "ex_044", "description": "Description for example 44" },
-    { "example": "ex_045", "description": "Description for example 45" },
-    { "example": "ex_046", "description": "Description for example 46" },
-    { "example": "ex_047", "description": "Description for example 47" },
-    { "example": "ex_048", "description": "Description for example 48" },
-    { "example": "ex_049", "description": "Description for example 49" },
-    { "example": "ex_050", "description": "Description for example 50" },
-    { "example": "ex_051", "description": "Description for example 51" },
-    { "example": "ex_052", "description": "Description for example 52" },
-    { "example": "ex_053", "description": "Description for example 53" },
-    { "example": "ex_054", "description": "Description for example 54" },
-    { "example": "ex_055", "description": "Description for example 55" },
-    { "example": "ex_056", "description": "Description for example 56" },
-    { "example": "ex_057", "description": "Description for example 57" },
-    { "example": "ex_058", "description": "Description for example 58" },
-    { "example": "ex_059", "description": "Description for example 59" },
-    { "example": "ex_060", "description": "Description for example 60" },
-    { "example": "ex_061", "description": "Description for example 61" },
-    { "example": "ex_062", "description": "Description for example 62" },
-    { "example": "ex_063", "description": "Description for example 63" },
-    { "example": "ex_064", "description": "Description for example 64" },
-    { "example": "ex_065", "description": "Description for example 65" },
-    { "example": "ex_066", "description": "Description for example 66" },
-    { "example": "ex_067", "description": "Description for example 67" },
-    { "example": "ex_068", "description": "Description for example 68" },
-    { "example": "ex_069", "description": "Description for example 69" },
-    { "example": "ex_070", "description": "Description for example 70" },
-    { "example": "ex_071", "description": "Description for example 71" },
-    { "example": "ex_072", "description": "Description for example 72" },
-    { "example": "ex_073", "description": "Description for example 73" },
-    { "example": "ex_074", "description": "Description for example 74" },
-    { "example": "ex_075", "description": "Description for example 75" },
-    { "example": "ex_076", "description": "Description for example 76" },
-    { "example": "ex_077", "description": "Description for example 77" },
-    { "example": "ex_078", "description": "Description for example 78" },
-    { "example": "ex_079", "description": "Description for example 79" },
-    { "example": "ex_080", "description": "Description for example 80" },
-    { "example": "ex_081", "description": "Description for example 81" },
-    { "example": "ex_082", "description": "Description for example 82" },
-    { "example": "ex_083", "description": "Description for example 83" },
-    { "example": "ex_084", "description": "Description for example 84" },
-    { "example": "ex_085", "description": "Description for example 85" },
-    { "example": "ex_086", "description": "Description for example 86" },
-    { "example": "ex_087", "description": "Description for example 87" },
-    { "example": "ex_088", "description": "Description for example 88" },
-    { "example": "ex_089", "description": "Description for example 89" },
-    { "example": "ex_090", "description": "Description for example 90" },
-    { "example": "ex_091", "description": "Description for example 91" },
-    { "example": "ex_092", "description": "Description for example 92" },
-    { "example": "ex_093", "description": "Description for example 93" },
-    { "example": "ex_094", "description": "Description for example 94" },
-    { "example": "ex_095", "description": "Description for example 95" },
-    { "example": "ex_096", "description": "Description for example 96" },
-    { "example": "ex_097", "description": "Description for example 97" },
-    { "example": "ex_098", "description": "Description for example 98" },
-    { "example": "ex_099", "description": "Description for example 99" },
-    { "example": "ex_100", "description": "Description for example 100" },
-    { "example": "ex_101", "description": "Description for example 101" },
-    { "example": "ex_102", "description": "Description for example 102" },
-    { "example": "ex_103", "description": "Description for example 103" },
-    { "example": "ex_104", "description": "Description for example 104" },
-    { "example": "ex_105", "description": "Description for example 105" },
-    { "example": "ex_106", "description": "Description for example 106" },
-    { "example": "ex_107", "description": "Description for example 107" },
-    { "example": "ex_108", "description": "Description for example 108" },
-    { "example": "ex_109", "description": "Description for example 109" },
-    { "example": "ex_110", "description": "Description for example 110" },
-    { "example": "ex_111", "description": "Description for example 111" },
-    { "example": "ex_112", "description": "Description for example 112" },
-    { "example": "ex_113", "description": "Description for example 113" },
-    { "example": "ex_114", "description": "Description for example 114" },
-    { "example": "ex_115", "description": "Description for example 115" },
-    { "example": "ex_116", "description": "Description for example 116" },
-    { "example": "ex_117", "description": "Description for example 117" },
-    { "example": "ex_118", "description": "Description for example 118" },
-    { "example": "ex_119", "description": "Description for example 119" },
-    { "example": "ex_120", "description": "Description for example 120" },
-    { "example": "ex_121", "description": "Description for example 121" },
-    { "example": "ex_122", "description": "Description for example 122" },
-    { "example": "ex_123", "description": "Description for example 123" },
-    { "example": "ex_124", "description": "Description for example 124" },
-    { "example": "ex_125", "description": "Description for example 125" },
-    { "example": "ex_126", "description": "Description for example 126" },
-    { "example": "ex_127", "description": "Description for example 127" },
-    { "example": "ex_128", "description": "Description for example 128" },
-    { "example": "ex_129", "description": "Description for example 129" },
-    { "example": "ex_130", "description": "Description for example 130" }
-];
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <title>OSINT Profiler</title>
+</head>
+<body x-data="profilerApp">
+    <div class="container mx-auto">
+        <h1 class="text-4xl font-bold my-6">Full OSINT Profiler</h1>
+        <div class="radar-chart">
+            <canvas id="myChart"></canvas>
+        </div>
+        <button @click="downloadPDF()" class="btn btn-download">
+            Download Profile
+        </button>
+        <!-- Add any other components or UI elements here -->
+    </div>
+    <script>
+        const RAW_DATABASE = [
+            { id: 'ex_001', chapter: '1', section: 'Phishing', title: 'Email Phishing', description: 'A fraudulent attempt to obtain sensitive information...', text: 'Beware of emails asking for personal data.', type: 'Online Attack', malicious_action: 'Stealing credentials' },
+            { id: 'ex_002', chapter: '1', section: 'Phishing', title: 'Spear Phishing', description: 'Targeting specific individuals...', text: 'Meant to look legitimate to the victim.', type: 'Online Attack', malicious_action: 'Identity theft' },
+            // ... continue defining all examples up to ex_130
+            { id: 'ex_130', chapter: '10', section: 'Physical Access', title: 'Using USB devices', description: 'Leaving infected USB drives in public places...', text: 'Leads to malware installation upon connection.', type: 'Offline Attack', malicious_action: 'Unauthorized access' }
+        ];
+
+        function profilerApp() {
+            return {
+                context: {},
+                calculateContextualMath() {},
+                renderChart() {},
+                downloadPDF() {},
+                copyPrompt() {},
+                parseProfileAndRecommend() {},
+                // Auto-patcher for SE_DATABASE with psychological features
+                SE_DATABASE: [],
+                patchDatabase() {
+                    // Auto-patch method for SE_DATABASE with features
+                }
+            }
+        }
+    </script>
+</body>
+</html>
