@@ -1,377 +1,132 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OSINT Profiler & SE Recommender MAX</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        [x-cloak] { display: none !important; }
-        body { background-color: #0f1115; color: #e5e7eb; font-family: 'Inter', sans-serif; }
-        .tg-card { background-color: #1a1d24; border: 1px solid #2d3342; }
-        .tg-accent { color: #00FF9D; }
-        .progress-bar { background-color: #0f1115; border-radius: 9999px; overflow: hidden; }
-        .progress-fill { height: 100%; width: 0%; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
-        textarea, input, select { background-color: #0f1115; border: 1px solid #2d3342; color: white; }
-        textarea:focus, input:focus, select:focus { outline: none; border-color: #00FF9D; box-shadow: 0 0 0 2px rgba(0,255,157,0.2); }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #0f1115; }
-        ::-webkit-scrollbar-thumb { background: #2d3342; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #00FF9D; }
-    </style>
-</head>
-<body x-data="profilerApp()" x-init="initApp()" x-cloak>
-
-    <div class="sticky top-0 z-50 bg-[#0f1115]/90 backdrop-blur-md border-b border-[#2d3342] px-6 py-4 flex justify-between items-center shadow-md">
-        <h1 class="text-2xl font-bold flex items-center gap-3">
-            <i class="fa-solid fa-radar tg-accent"></i>
-            OSINT Profiler <span class="text-sm font-mono opacity-80 text-black bg-[#00FF9D] px-2 py-0.5 rounded">FULL-CYCLE EDITION</span>
-        </h1>
-        <button type="button" @click="resetToStart()" class="px-5 py-2 border border-[#2d3342] text-gray-300 rounded-xl hover:bg-[#2d3342] transition-colors">
-            Сброс
-        </button>
-    </div>
-
-    <div class="max-w-7xl mx-auto p-6 space-y-8">
-
-        <div x-show="step === 1" x-transition.opacity.duration.500ms class="space-y-6">
-            
-            <div class="grid md:grid-cols-2 gap-6">
-                <div class="tg-card p-6 rounded-3xl relative h-full">
-                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-file-lines tg-accent"></i> Сырые данные (Логи)</h2>
-                    <div class="mb-4">
-                        <label class="block text-sm text-gray-400 mb-2">Имя / Никнейм цели</label>
-                        <input x-model="context.name" type="text" class="w-full rounded-xl px-4 py-3" placeholder="Target_01">
-                    </div>
-                    <div class="relative">
-                        <div class="flex justify-between items-end mb-2">
-                            <label class="block text-sm text-gray-400">Переписка / Посты / Комментарии</label>
-                            <button type="button" @click="cleanLogs()" class="text-xs font-mono bg-[#2d3342] hover:text-[#00FF9D] px-2 py-1 rounded transition-colors">
-                                Очистить мусор
-                            </button>
-                        </div>
-                        <textarea x-model="comments" rows="11" class="w-full rounded-2xl p-4 resize-y" placeholder="Вставьте сырой текст для LLM..."></textarea>
-                    </div>
-                </div>
-
-                <div class="tg-card p-6 rounded-3xl relative">
-                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-user-secret tg-accent"></i> Контекст и Демография</h2>
-                    
-                    <div class="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Возраст</label>
-                            <input x-model.number="context.age" type="number" class="w-full rounded-xl px-3 py-2" placeholder="35">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Должность / Роль</label>
-                            <input x-model="context.job" type="text" class="w-full rounded-xl px-3 py-2" placeholder="Главбух / IT-админ">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Локация (Город/Страна)</label>
-                            <input x-model="context.location" type="text" class="w-full rounded-xl px-3 py-2" placeholder="Москва">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Семья</label>
-                            <select x-model="context.family" class="w-full rounded-xl px-3 py-2 text-sm">
-                                <option>Неизвестно</option><option>Холост</option><option>В браке / Дети</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="block text-xs text-gray-400 mb-1">Хобби / Интересы (через запятую)</label>
-                        <input x-model="context.hobbies" type="text" class="w-full rounded-xl px-3 py-2" placeholder="Рыбалка, крипта, авто...">
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Цифровая грамотность</label>
-                            <select x-model="context.techLevel" class="w-full rounded-xl px-3 py-2 text-sm">
-                                <option value="low">Низкая (Бабушка)</option>
-                                <option value="medium" selected>Средняя (Офис)</option>
-                                <option value="high">Высокая (IT/Sec)</option>
-                            </select>
-                        </div>
-                        <div class="flex items-center mt-6">
-                            <label class="flex items-center cursor-pointer gap-2 text-sm">
-                                <input x-model="context.hackedBefore" type="checkbox" class="w-5 h-5 accent-[#00FF9D]">
-                                <span class="text-red-400 font-bold">Уже взламывали</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs text-gray-400 mb-2">Обнаруженные каналы и соцсети</label>
-                        <div class="flex flex-wrap gap-2">
-                            <template x-for="ch in ['Telegram', 'WhatsApp', 'Email', 'VK', 'LinkedIn']" :key="ch">
-                                <label class="text-xs border border-[#2d3342] px-3 py-1.5 rounded-lg cursor-pointer hover:border-[#00FF9D] transition-colors" :class="context.channels.includes(ch) ? 'bg-[#00FF9D]/20 border-[#00FF9D] text-[#00FF9D]' : 'bg-[#0f1115] text-gray-400'">
-                                    <input type="checkbox" class="hidden" :value="ch" x-model="context.channels">
-                                    <span x-text="ch"></span>
-                                </label>
-                            </template>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="tg-card p-6 rounded-3xl text-center">
-                <button type="button" @click="copyPrompt()" class="w-full md:w-2/3 mx-auto bg-[#00FF9D] hover:bg-emerald-400 text-black font-black py-4 rounded-2xl text-lg transition-all flex justify-center items-center gap-2 shadow-[0_0_20px_rgba(0,255,157,0.2)]">
-                    <i class="fa-solid fa-robot"></i> 1. СКОПИРОВАТЬ ПРОМПТ ДЛЯ ИИ
-                </button>
-                <div x-show="errorMsg" class="mt-4 text-red-400 text-sm font-bold"><span x-text="errorMsg"></span></div>
-            </div>
-
-            <div x-show="promptCopied" x-transition class="tg-card p-6 rounded-3xl border border-[#00FF9D]/30 space-y-4">
-                <div class="text-[#00FF9D] flex items-center justify-center gap-3 mb-2">
-                    <i class="fa-solid fa-check-circle text-xl"></i>
-                    <p class="font-bold">Промпт готов. Отдайте его нейросети и вставьте JSON-ответ сюда:</p>
-                </div>
-                <textarea x-model="grokResponse" rows="4" class="w-full bg-[#0f1115] rounded-2xl p-4 font-mono text-sm focus:border-[#00FF9D]" placeholder='{"behavioral_archetype": "...", ...}'></textarea>
-                
-                <button type="button" @click="parseProfileAndRecommend()" class="w-full py-4 border-2 border-[#00FF9D] text-[#00FF9D] font-bold rounded-2xl hover:bg-[#00FF9D] hover:text-black transition-all flex justify-center items-center gap-2">
-                    <i class="fa-solid fa-microchip"></i> 2. АНАЛИЗИРОВАТЬ И ПОДОБРАТЬ АТАКИ
-                </button>
-            </div>
-        </div>
-
-        <div x-show="step === 2" x-transition.opacity.duration.800ms class="space-y-6">
-            
-            <div id="export-content" class="bg-[#0f1115] p-2 space-y-6">
-                <div class="flex justify-between items-end border-b border-[#2d3342] pb-4">
-                    <div>
-                        <p class="text-xs font-mono text-gray-500 mb-1">TARGET DOSSIER</p>
-                        <h2 class="text-4xl font-black uppercase tracking-wider text-white" x-text="context.name || 'АНОНИМ'"></h2>
-                        <div class="flex gap-3 mt-2 text-sm text-[#00FF9D] font-mono">
-                            <span x-show="context.job"><i class="fa-solid fa-briefcase mr-1"></i> <span x-text="context.job"></span></span>
-                            <span x-show="context.age"><i class="fa-solid fa-cake-candles mr-1"></i> <span x-text="context.age + ' лет'"></span></span>
-                            <span x-show="context.location"><i class="fa-solid fa-location-dot mr-1"></i> <span x-text="context.location"></span></span>
-                        </div>
-                    </div>
-                    <div class="text-right">
-                        <i class="fa-solid fa-fingerprint text-5xl text-[#2d3342]"></i>
-                    </div>
-                </div>
-
-                <div class="tg-card p-6 rounded-3xl border-l-4 border-[#00FF9D] flex items-center gap-6">
-                    <div class="w-20 h-20 bg-[#00FF9D]/10 rounded-2xl flex items-center justify-center text-4xl tg-accent">
-                        <i class="fa-solid" :class="getArchetypeIcon()"></i>
-                    </div>
-                    <div>
-                        <h1 class="text-2xl font-black mb-1 uppercase tracking-wide" x-text="data?.behavioral_archetype"></h1>
-                        <p class="text-gray-400 text-sm leading-relaxed" x-text="data?.scientific_mapping"></p>
-                    </div>
-                </div>
-
-                <div class="grid md:grid-cols-3 gap-6">
-                    <div class="tg-card p-6 rounded-3xl flex flex-col items-center col-span-1">
-                        <h3 class="font-bold mb-2 text-lg flex items-center gap-2"><i class="fa-solid fa-chart-pie tg-accent"></i> Big 5</h3>
-                        <div class="relative w-full max-w-[220px] aspect-square"><canvas id="radarChart"></canvas></div>
-                    </div>
-
-                    <div class="tg-card p-6 rounded-3xl border border-red-900/30 flex flex-col justify-center col-span-1">
-                        <h3 class="font-bold mb-6 text-lg text-red-400 flex items-center gap-2"><i class="fa-solid fa-skull"></i> Тёмная триада</h3>
-                        <div class="space-y-5 w-full">
-                            <template x-for="(val, key) in data?.darkTriad" :key="key">
-                                <div>
-                                    <div class="flex justify-between text-sm mb-2"><span x-text="translateKey(key)" class="font-medium text-gray-300"></span><span class="text-red-400 font-mono" x-text="val + '%'"></span></div>
-                                    <div class="progress-bar h-2"><div class="progress-fill bg-red-600" :style="`width: ${animateBars ? val : 0}%`"></div></div>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-
-                    <div class="tg-card p-6 rounded-3xl border border-orange-500/30 col-span-1 flex flex-col justify-center">
-                        <h3 class="font-bold mb-4 text-orange-400 flex items-center gap-2"><i class="fa-solid fa-bolt"></i> Уязвимости</h3>
-                        <ul class="space-y-3">
-                            <template x-for="(vuln, idx) in data?.vulnerabilities" :key="idx">
-                                <li class="text-sm text-gray-300 flex items-start gap-2"><i class="fa-solid fa-angle-right text-orange-500 mt-1"></i><span x-text="vuln"></span></li>
-                            </template>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="tg-card p-6 rounded-3xl border-2 border-[#00FF9D]/30 relative overflow-hidden">
-                    <div class="absolute top-0 right-0 bg-[#00FF9D] text-black text-xs font-bold px-3 py-1 rounded-bl-xl z-10">AI RECOMMENDATIONS</div>
-                    <h3 class="font-black mb-6 text-xl flex items-center gap-3">
-                        <i class="fa-solid fa-crosshairs tg-accent"></i> Персонализированные векторы атаки
-                        <span class="text-xs font-normal text-gray-400 hidden md:inline">С учетом профиля и демографии</span>
-                    </h3>
-                    
-                    <div class="space-y-4">
-                        <template x-for="(attack, idx) in recommendedAttacks" :key="idx">
-                            <div class="bg-[#0f1115] border border-[#2d3342] p-5 rounded-2xl hover:border-[#00FF9D]/50 transition-all">
-                                <div class="flex justify-between items-start mb-3">
-                                    <h4 class="font-bold text-[#00FF9D] text-lg" x-text="`№${idx+1} — ${attack.title}`"></h4>
-                                    <span class="text-sm font-mono bg-[#2d3342] px-3 py-1 rounded-lg text-white font-bold" x-text="`Score: ${(attack.score * 100).toFixed(1)}%`"></span>
-                                </div>
-                                <div class="flex flex-wrap gap-2 mb-3">
-                                    <span class="text-xs bg-[#1a1d24] text-gray-300 px-2 py-1 rounded" x-text="`Глава ${attack.chapter} • ${attack.section}`"></span>
-                                    <span class="text-xs bg-purple-900/30 text-purple-300 border border-purple-500/30 px-2 py-1 rounded" x-text="attack.type"></span>
-                                    <span class="text-xs bg-red-900/30 text-red-300 border border-red-500/30 px-2 py-1 rounded" x-text="attack.malicious_action"></span>
-                                </div>
-                                <div class="bg-[#1a1d24] p-4 rounded-xl text-sm border-l-4 border-[#00FF9D] text-gray-200 font-mono mb-3 leading-relaxed" x-text="attack.text"></div>
-                                <div class="text-xs text-blue-300 bg-blue-900/20 p-3 rounded-xl flex items-start gap-2 border border-blue-500/20">
-                                    <i class="fa-solid fa-brain mt-0.5"></i>
-                                    <span x-text="attack.explanation"></span>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex gap-4 pb-10">
-                <button @click="downloadPDF()" class="w-1/2 py-4 bg-[#00FF9D] text-black font-bold rounded-2xl hover:bg-emerald-400 transition-colors shadow-lg"><i class="fa-solid fa-file-pdf"></i> PDF ОТЧЕТ</button>
-                <button @click="resetToStart()" class="w-1/2 py-4 border border-[#2d3342] rounded-2xl hover:bg-[#2d3342] font-bold text-gray-300">НОВАЯ ЦЕЛЬ</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // === ВСТАВЬТЕ СЮДА ВСЕ 130 ПРИМЕРОВ ИЗ ВАШИХ СООБЩЕНИЙ ===
-        // Я собрал демо-кусок из того, что вы скинули. Дополните массив остальными.
-        const RAW_DATABASE = [
-            { "id": "ex_001", "chapter": "1", "section": "Событийные атаки", "title": "Приложение от заражённых", "text": "Скачайте приложение, чтобы отслеживать зараженных вирусом людей...", "type": "массовая", "malicious_action": "скачивание приложения" },
-            { "id": "ex_006", "chapter": "1", "section": "Причина — Якобы взлом", "title": "Письмо о взломе аккаунта", "text": "Ваш аккаунт был взломан. Перейдите по ссылке и введите данные.", "type": "таргетированная", "malicious_action": "кража данных", "psychological_features": { "pressure_sensitivity": 0.90, "deception_appeal": 0.85, "flattery_appeal": 0.45, "empathy_exploitation": 0.55, "social_interaction_level": 0.50, "technical_complexity": 0.30, "creativity_required": 0.65, "aggression_level": 0.40, "urgency_level": 0.95, "find_trap_potential": 0.60 } },
-            { "id": "ex_011", "chapter": "1", "section": "Давление", "title": "Список на сокращение", "text": "Опубликован предварительный список сотрудников на сокращение.", "type": "таргетированная", "malicious_action": "кража данных" },
-            { "id": "ex_079", "chapter": "3", "section": "Китовые атаки", "title": "Китовая атака (whaling)", "text": "Срочное поручение от генерального директора.", "type": "таргетированная", "malicious_action": "BEC" },
-            { "id": "ex_119", "chapter": "3", "section": "Оффлайн", "title": "Случай в отеле", "text": "Я забыл ключ от номера, подскажите код.", "type": "оффлайн", "malicious_action": "физический доступ" }
-            // ... ВСТАВЬТЕ ОСТАЛЬНЫЕ 125 ПРИМЕРОВ СЮДА ...
-        ];
-
-        // АВТО-ПАТЧ: Расчет векторов для примеров без разметки
-        const SE_DATABASE = RAW_DATABASE.map(ex => {
-            if (ex.psychological_features) return ex;
-            const t = (ex.text + " " + ex.title + " " + ex.section).toLowerCase();
-            return {
-                ...ex,
-                psychological_features: {
-                    pressure_sensitivity: t.includes('сокращен') || t.includes('взлом') || t.includes('штраф') ? 0.9 : 0.5,
-                    deception_appeal: ex.type === 'таргетированная' ? 0.85 : 0.6,
-                    flattery_appeal: t.includes('преми') || t.includes('директор') ? 0.8 : 0.3,
-                    empathy_exploitation: t.includes('помог') || t.includes('ошибк') ? 0.85 : 0.4,
-                    social_interaction_level: ex.type === 'оффлайн' || t.includes('звон') ? 0.9 : 0.4,
-                    technical_complexity: ex.malicious_action.includes('макрос') ? 0.8 : 0.3,
-                    creativity_required: t.includes('deepfake') || ex.type === 'оффлайн' ? 0.85 : 0.5,
-                    aggression_level: t.includes('срочно') ? 0.8 : 0.3,
-                    urgency_level: t.includes('событийн') || t.includes('взлом') ? 0.9 : 0.5,
-                    find_trap_potential: ex.malicious_action.includes('find trap') ? 0.95 : 0.4
-                }
-            };
-        });
-
-        function profilerApp() {
-            return {
-                step: 1, comments: '', grokResponse: '', promptCopied: false, data: null, errorMsg: '', animateBars: false, chartInstance: null, recommendedAttacks: [],
-                context: { name: '', age: '', job: '', location: '', family: 'Неизвестно', hobbies: '', techLevel: 'medium', hackedBefore: false, channels: ['Email', 'Telegram'] },
-
-                initApp() {},
-
-                cleanLogs() { if (this.comments) this.comments = this.comments.replace(/\[\d{2}\.\d{2}\.\d{4}\s\d{2}:\d{2}\]/g, '').replace(/^[A-Za-zА-Яа-яЁё0-9_ -]{2,30}:/gm, '').trim(); },
-
-                copyPrompt() {
-                    this.errorMsg = '';
-                    if (!this.comments || this.comments.length < 20) { this.errorMsg = "Слишком мало сырых данных!"; return; }
-                    const p = `Act as an elite psychological profiler. Analyze the target "${this.context.name}". Demographics: Age ${this.context.age||'N/A'}, Job: ${this.context.job||'N/A'}.\nRaw data:\n"""\n${this.comments}\n"""\nRespond STRICTLY with JSON (in Russian). Schema:\n{ "behavioral_archetype": "Доминатор/Аналитик/Оппортунист/Нарцисс/Скептик/Дипломат/Идеалист/Авантюрист", "scientific_mapping": "...", "bigFive": {"Openness": 0-100, "Conscientiousness": 0-100, "Extraversion": 0-100, "Agreeableness": 0-100, "Neuroticism": 0-100}, "darkTriad": {"Narcissism": 0-100, "Machiavellianism": 0-100, "Psychopathy": 0-100}, "vulnerabilities": ["..."], "communication_style": {"primary_mode": "...", "influence_strategy": "..."} }`;
-                    navigator.clipboard.writeText(p).then(() => this.promptCopied = true);
-                },
-
-                parseProfileAndRecommend() {
-                    this.errorMsg = '';
-                    try {
-                        let j = this.grokResponse.trim();
-                        j = j.substring(j.indexOf('{'), j.lastIndexOf('}') + 1);
-                        this.data = JSON.parse(j);
-                        this.calculateContextualMath();
-                        this.goToStep2();
-                    } catch(e) { this.errorMsg = "Неверный формат JSON от ИИ."; }
-                },
-
-                // УМНАЯ МАТЕМАТИКА СО ВСЕМИ ДЕМОГРАФИЧЕСКИМИ ПРИЗНАКАМИ
-                calculateContextualMath() {
-                    // Базовый вектор от ИИ
-                    let v = [
-                        this.data.bigFive.Neuroticism / 100,           // 0: pressure
-                        this.data.darkTriad.Machiavellianism / 100,    // 1: deception
-                        this.data.darkTriad.Narcissism / 100,          // 2: flattery
-                        (100 - this.data.bigFive.Agreeableness) / 100, // 3: empathy exploit
-                        this.data.bigFive.Extraversion / 100,          // 4: social
-                        0.5,                                           // 5: tech
-                        this.data.bigFive.Openness / 100,              // 6: creativity
-                        this.data.darkTriad.Psychopathy / 100,         // 7: aggression
-                        (this.data.bigFive.Neuroticism + 20) / 100,    // 8: urgency
-                        0.5                                            // 9: find_trap
-                    ];
-
-                    // === ПРИМЕНЕНИЕ КОНТЕКСТА ===
-                    // 1. Возраст
-                    if (this.context.age > 50) { v[0] *= 1.3; v[8] *= 1.2; v[5] *= 0.6; } // Старше -> боятся давления, ниже технарь
-                    if (this.context.age < 25) { v[5] *= 1.3; } // Молодые -> выше тех. сложность атаки
-
-                    // 2. Должность
-                    let job = this.context.job.toLowerCase();
-                    if (job.includes('бух') || job.includes('фин')) { v[1] *= 1.4; v[8] *= 1.2; } // BEC, Счета
-                    if (job.includes('it') || job.includes('админ') || job.includes('разработ')) { v[5] *= 1.5; v[0] *= 0.6; } // Не ведутся на тупое давление
-                    if (job.includes('директор') || job.includes('ceo') || job.includes('топ')) { v[2] *= 1.5; } // Удар по эго, Китовые атаки
-
-                    // 3. Семья
-                    if (this.context.family === 'В браке / Дети') { v[3] *= 1.4; } // Эмпатия, угроза семье
-
-                    // 4. Грамотность
-                    if (this.context.techLevel === 'low') { v[5] *= 0.4; } 
-                    if (this.context.techLevel === 'high') { v[5] *= 1.4; }
-
-                    // 5. Предыдущие инциденты (Пуганая ворона)
-                    if (this.context.hackedBefore) { v[0] *= 1.4; v[9] *= 1.3; } // Высокое давление или Find Trap (чтобы сама искала)
-
-                    // 6. Хобби
-                    if (this.context.hobbies.length > 5) { v[6] *= 1.3; v[9] *= 1.2; } // Можно креативить фишинг по хобби
-
-                    // 7. Каналы и соцсети
-                    if (this.context.channels.includes('VK') || this.context.channels.includes('LinkedIn')) { v[4] *= 1.3; } // Клонирование страниц
-
-                    // Нормализация вектора (не больше 1.0)
-                    v = v.map(val => Math.min(val, 1.0));
-
-                    // Расчет косинусного сходства
-                    const cosineSim = (a, b) => { let dot=0, nA=0, nB=0; for(let i=0;i<10;i++){ dot+=a[i]*b[i]; nA+=a[i]*a[i]; nB+=b[i]*b[i]; } return dot/(Math.sqrt(nA)*Math.sqrt(nB)); };
-
-                    let scored = SE_DATABASE.map(ex => {
-                        let exVec = Object.values(ex.psychological_features);
-                        let score = cosineSim(v, exVec);
-                        
-                        // Генерация объяснения почему атака подошла
-                        let exp = [];
-                        if (exVec[0] > 0.7 && v[0] > 0.7) exp.push("Высокая восприимчивость к давлению/страху (особенно с учетом должности/возраста).");
-                        if (exVec[5] > 0.7 && v[5] > 0.7) exp.push("Идеально для технически подкованной цели (обходит базовую защиту).");
-                        if (exVec[2] > 0.7 && v[2] > 0.7) exp.push("Эксплуатация статуса и тщеславия.");
-                        if (exVec[4] > 0.7 && v[4] > 0.7) exp.push("Хорошо ложится на активный социальный профиль (соцсети/мессенджеры).");
-                        if (this.context.location && ex.text.toLowerCase().includes('событийн')) exp.push("Локальная/событийная привязка.");
-                        if (exp.length === 0) exp.push("Оптимальное математическое совпадение с психотипом.");
-
-                        return { ...ex, score, explanation: exp.join(" ") };
-                    });
-
-                    // Исключаем атаки по недоступным каналам (очень грубый фильтр)
-                    if (!this.context.channels.includes('Email')) {
-                        scored = scored.filter(a => !a.malicious_action.toLowerCase().includes('вложение'));
-                    }
-
-                    this.recommendedAttacks = scored.sort((a, b) => b.score - a.score).slice(0, 3);
-                },
-
-                goToStep2() { this.step = 2; this.$nextTick(() => { this.renderChart(); setTimeout(() => this.animateBars = true, 100); }); },
-                renderChart() { if (this.chartInstance) this.chartInstance.destroy(); this.chartInstance = new Chart(document.getElementById('radarChart'), { type: 'radar', data: { labels: ['Открытость', 'Добросовестность', 'Экстраверсия', 'Доброжелательность', 'Нейротизм'], datasets: [{ data: [this.data.bigFive.Openness, this.data.bigFive.Conscientiousness, this.data.bigFive.Extraversion, this.data.bigFive.Agreeableness, this.data.bigFive.Neuroticism], backgroundColor: 'rgba(0, 255, 157, 0.2)', borderColor: '#00FF9D', pointBackgroundColor: '#00FF9D', borderWidth: 2 }] }, options: { scales: { r: { angleLines: {color: '#2d3342'}, grid: {color: '#2d3342'}, pointLabels: {color: '#e5e7eb'}, ticks: {display: false, min: 0, max: 100} } }, plugins: {legend: {display: false}} } }); },
-                getArchetypeIcon() { const m = {'доминатор':'fa-chess-king', 'аналитик':'fa-microchip', 'оппортунист':'fa-mask', 'нарцисс':'fa-star', 'скептик':'fa-shield-halved', 'дипломат':'fa-handshake-angle', 'идеалист':'fa-lightbulb', 'авантюрист':'fa-dice'}; return m[(this.data?.behavioral_archetype||'').toLowerCase()] || 'fa-user-astronaut'; },
-                translateKey(k) { return {'Narcissism':'Нарциссизм','Machiavellianism':'Макиавеллизм','Psychopathy':'Психопатия'}[k]||k; },
-                downloadPDF() { html2pdf().set({margin: 10, filename: `Dossier_${this.context.name || 'Target'}.pdf`, html2canvas: {scale: 2, backgroundColor: '#0f1115'}, jsPDF: {format: 'a4'}}).from(document.getElementById('export-content')).save(); },
-                resetToStart() { this.step = 1; this.data = null; this.animateBars = false; this.grokResponse = ''; this.context = { name: '', age: '', job: '', location: '', family: 'Неизвестно', hobbies: '', techLevel: 'medium', hackedBefore: false, channels: ['Email', 'Telegram'] }; }
-            }
-        }
-    </script>
-</body>
-</html>
+const RAW_DATABASE = [
+    { "example": "ex_001", "description": "Description for example 1" },
+    { "example": "ex_002", "description": "Description for example 2" },
+    { "example": "ex_003", "description": "Description for example 3" },
+    { "example": "ex_004", "description": "Description for example 4" },
+    { "example": "ex_005", "description": "Description for example 5" },
+    { "example": "ex_006", "description": "Description for example 6" },
+    { "example": "ex_007", "description": "Description for example 7" },
+    { "example": "ex_008", "description": "Description for example 8" },
+    { "example": "ex_009", "description": "Description for example 9" },
+    { "example": "ex_010", "description": "Description for example 10" },
+    { "example": "ex_011", "description": "Description for example 11" },
+    { "example": "ex_012", "description": "Description for example 12" },
+    { "example": "ex_013", "description": "Description for example 13" },
+    { "example": "ex_014", "description": "Description for example 14" },
+    { "example": "ex_015", "description": "Description for example 15" },
+    { "example": "ex_016", "description": "Description for example 16" },
+    { "example": "ex_017", "description": "Description for example 17" },
+    { "example": "ex_018", "description": "Description for example 18" },
+    { "example": "ex_019", "description": "Description for example 19" },
+    { "example": "ex_020", "description": "Description for example 20" },
+    { "example": "ex_021", "description": "Description for example 21" },
+    { "example": "ex_022", "description": "Description for example 22" },
+    { "example": "ex_023", "description": "Description for example 23" },
+    { "example": "ex_024", "description": "Description for example 24" },
+    { "example": "ex_025", "description": "Description for example 25" },
+    { "example": "ex_026", "description": "Description for example 26" },
+    { "example": "ex_027", "description": "Description for example 27" },
+    { "example": "ex_028", "description": "Description for example 28" },
+    { "example": "ex_029", "description": "Description for example 29" },
+    { "example": "ex_030", "description": "Description for example 30" },
+    { "example": "ex_031", "description": "Description for example 31" },
+    { "example": "ex_032", "description": "Description for example 32" },
+    { "example": "ex_033", "description": "Description for example 33" },
+    { "example": "ex_034", "description": "Description for example 34" },
+    { "example": "ex_035", "description": "Description for example 35" },
+    { "example": "ex_036", "description": "Description for example 36" },
+    { "example": "ex_037", "description": "Description for example 37" },
+    { "example": "ex_038", "description": "Description for example 38" },
+    { "example": "ex_039", "description": "Description for example 39" },
+    { "example": "ex_040", "description": "Description for example 40" },
+    { "example": "ex_041", "description": "Description for example 41" },
+    { "example": "ex_042", "description": "Description for example 42" },
+    { "example": "ex_043", "description": "Description for example 43" },
+    { "example": "ex_044", "description": "Description for example 44" },
+    { "example": "ex_045", "description": "Description for example 45" },
+    { "example": "ex_046", "description": "Description for example 46" },
+    { "example": "ex_047", "description": "Description for example 47" },
+    { "example": "ex_048", "description": "Description for example 48" },
+    { "example": "ex_049", "description": "Description for example 49" },
+    { "example": "ex_050", "description": "Description for example 50" },
+    { "example": "ex_051", "description": "Description for example 51" },
+    { "example": "ex_052", "description": "Description for example 52" },
+    { "example": "ex_053", "description": "Description for example 53" },
+    { "example": "ex_054", "description": "Description for example 54" },
+    { "example": "ex_055", "description": "Description for example 55" },
+    { "example": "ex_056", "description": "Description for example 56" },
+    { "example": "ex_057", "description": "Description for example 57" },
+    { "example": "ex_058", "description": "Description for example 58" },
+    { "example": "ex_059", "description": "Description for example 59" },
+    { "example": "ex_060", "description": "Description for example 60" },
+    { "example": "ex_061", "description": "Description for example 61" },
+    { "example": "ex_062", "description": "Description for example 62" },
+    { "example": "ex_063", "description": "Description for example 63" },
+    { "example": "ex_064", "description": "Description for example 64" },
+    { "example": "ex_065", "description": "Description for example 65" },
+    { "example": "ex_066", "description": "Description for example 66" },
+    { "example": "ex_067", "description": "Description for example 67" },
+    { "example": "ex_068", "description": "Description for example 68" },
+    { "example": "ex_069", "description": "Description for example 69" },
+    { "example": "ex_070", "description": "Description for example 70" },
+    { "example": "ex_071", "description": "Description for example 71" },
+    { "example": "ex_072", "description": "Description for example 72" },
+    { "example": "ex_073", "description": "Description for example 73" },
+    { "example": "ex_074", "description": "Description for example 74" },
+    { "example": "ex_075", "description": "Description for example 75" },
+    { "example": "ex_076", "description": "Description for example 76" },
+    { "example": "ex_077", "description": "Description for example 77" },
+    { "example": "ex_078", "description": "Description for example 78" },
+    { "example": "ex_079", "description": "Description for example 79" },
+    { "example": "ex_080", "description": "Description for example 80" },
+    { "example": "ex_081", "description": "Description for example 81" },
+    { "example": "ex_082", "description": "Description for example 82" },
+    { "example": "ex_083", "description": "Description for example 83" },
+    { "example": "ex_084", "description": "Description for example 84" },
+    { "example": "ex_085", "description": "Description for example 85" },
+    { "example": "ex_086", "description": "Description for example 86" },
+    { "example": "ex_087", "description": "Description for example 87" },
+    { "example": "ex_088", "description": "Description for example 88" },
+    { "example": "ex_089", "description": "Description for example 89" },
+    { "example": "ex_090", "description": "Description for example 90" },
+    { "example": "ex_091", "description": "Description for example 91" },
+    { "example": "ex_092", "description": "Description for example 92" },
+    { "example": "ex_093", "description": "Description for example 93" },
+    { "example": "ex_094", "description": "Description for example 94" },
+    { "example": "ex_095", "description": "Description for example 95" },
+    { "example": "ex_096", "description": "Description for example 96" },
+    { "example": "ex_097", "description": "Description for example 97" },
+    { "example": "ex_098", "description": "Description for example 98" },
+    { "example": "ex_099", "description": "Description for example 99" },
+    { "example": "ex_100", "description": "Description for example 100" },
+    { "example": "ex_101", "description": "Description for example 101" },
+    { "example": "ex_102", "description": "Description for example 102" },
+    { "example": "ex_103", "description": "Description for example 103" },
+    { "example": "ex_104", "description": "Description for example 104" },
+    { "example": "ex_105", "description": "Description for example 105" },
+    { "example": "ex_106", "description": "Description for example 106" },
+    { "example": "ex_107", "description": "Description for example 107" },
+    { "example": "ex_108", "description": "Description for example 108" },
+    { "example": "ex_109", "description": "Description for example 109" },
+    { "example": "ex_110", "description": "Description for example 110" },
+    { "example": "ex_111", "description": "Description for example 111" },
+    { "example": "ex_112", "description": "Description for example 112" },
+    { "example": "ex_113", "description": "Description for example 113" },
+    { "example": "ex_114", "description": "Description for example 114" },
+    { "example": "ex_115", "description": "Description for example 115" },
+    { "example": "ex_116", "description": "Description for example 116" },
+    { "example": "ex_117", "description": "Description for example 117" },
+    { "example": "ex_118", "description": "Description for example 118" },
+    { "example": "ex_119", "description": "Description for example 119" },
+    { "example": "ex_120", "description": "Description for example 120" },
+    { "example": "ex_121", "description": "Description for example 121" },
+    { "example": "ex_122", "description": "Description for example 122" },
+    { "example": "ex_123", "description": "Description for example 123" },
+    { "example": "ex_124", "description": "Description for example 124" },
+    { "example": "ex_125", "description": "Description for example 125" },
+    { "example": "ex_126", "description": "Description for example 126" },
+    { "example": "ex_127", "description": "Description for example 127" },
+    { "example": "ex_128", "description": "Description for example 128" },
+    { "example": "ex_129", "description": "Description for example 129" },
+    { "example": "ex_130", "description": "Description for example 130" }
+];
