@@ -1,46 +1,1537 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <title>OSINT Profiler & SE Recommender MAX</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <title>OSINT Profiler</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        [x-cloak] { display: none !important; }
+        body { background-color: #0f1115; color: #e5e7eb; font-family: 'Inter', sans-serif; }
+        .tg-card { background-color: #1a1d24; border: 1px solid #2d3342; }
+        .tg-accent { color: #00FF9D; }
+        .progress-bar { background-color: #0f1115; border-radius: 9999px; overflow: hidden; }
+        .progress-fill { height: 100%; width: 0%; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
+        textarea, input, select { background-color: #0f1115; border: 1px solid #2d3342; color: white; }
+        textarea:focus, input:focus, select:focus { outline: none; border-color: #00FF9D; box-shadow: 0 0 0 2px rgba(0,255,157,0.2); }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f1115; }
+        ::-webkit-scrollbar-thumb { background: #2d3342; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00FF9D; }
+    </style>
 </head>
-<body x-data="profilerApp">
-    <div class="container mx-auto">
-        <h1 class="text-4xl font-bold my-6">Full OSINT Profiler</h1>
-        <div class="radar-chart">
-            <canvas id="myChart"></canvas>
-        </div>
-        <button @click="downloadPDF()" class="btn btn-download">
-            Download Profile
+<body x-data="profilerApp()" x-init="initApp()" x-cloak>
+
+    <div class="sticky top-0 z-50 bg-[#0f1115]/90 backdrop-blur-md border-b border-[#2d3342] px-6 py-4 flex justify-between items-center shadow-md">
+        <h1 class="text-2xl font-bold flex items-center gap-3">
+            <i class="fa-solid fa-radar tg-accent"></i>
+            OSINT Profiler <span class="text-sm font-mono opacity-80 text-black bg-[#00FF9D] px-2 py-0.5 rounded">FULL-CYCLE EDITION</span>
+        </h1>
+        <button type="button" @click="resetToStart()" class="px-5 py-2 border border-[#2d3342] text-gray-300 rounded-xl hover:bg-[#2d3342] transition-colors">
+            Сброс
         </button>
-        <!-- Add any other components or UI elements here -->
     </div>
+
+    <div class="max-w-7xl mx-auto p-6 space-y-8">
+
+        <div x-show="step === 1" x-transition.opacity.duration.500ms class="space-y-6">
+            
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="tg-card p-6 rounded-3xl relative h-full">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-file-lines tg-accent"></i> Сырые данные (Логи)</h2>
+                    <div class="mb-4">
+                        <label class="block text-sm text-gray-400 mb-2">Имя / Никнейм цели</label>
+                        <input x-model="context.name" type="text" class="w-full rounded-xl px-4 py-3" placeholder="Target_01">
+                    </div>
+                    <div class="relative">
+                        <div class="flex justify-between items-end mb-2">
+                            <label class="block text-sm text-gray-400">Переписка / Посты / Комментарии</label>
+                            <button type="button" @click="cleanLogs()" class="text-xs font-mono bg-[#2d3342] hover:text-[#00FF9D] px-2 py-1 rounded transition-colors">
+                                Очистить мусор
+                            </button>
+                        </div>
+                        <textarea x-model="comments" rows="11" class="w-full rounded-2xl p-4 resize-y" placeholder="Вставьте сырой текст для LLM..."></textarea>
+                    </div>
+                </div>
+
+                <div class="tg-card p-6 rounded-3xl relative">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-user-secret tg-accent"></i> Контекст и Демография</h2>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Возраст</label>
+                            <input x-model.number="context.age" type="number" class="w-full rounded-xl px-3 py-2" placeholder="35">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Должность / Роль</label>
+                            <input x-model="context.job" type="text" class="w-full rounded-xl px-3 py-2" placeholder="Главбух / IT-админ">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Локация (Город/Страна)</label>
+                            <input x-model="context.location" type="text" class="w-full rounded-xl px-3 py-2" placeholder="Москва">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Семья</label>
+                            <select x-model="context.family" class="w-full rounded-xl px-3 py-2 text-sm">
+                                <option>Неизвестно</option><option>Холост</option><option>В браке / Дети</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-xs text-gray-400 mb-1">Хобби / Интересы (через запятую)</label>
+                        <input x-model="context.hobbies" type="text" class="w-full rounded-xl px-3 py-2" placeholder="Рыбалка, крипта, авто...">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Цифровая грамотность</label>
+                            <select x-model="context.techLevel" class="w-full rounded-xl px-3 py-2 text-sm">
+                                <option value="low">Низкая (Бабушка)</option>
+                                <option value="medium" selected>Средняя (Офис)</option>
+                                <option value="high">Высокая (IT/Sec)</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center mt-6">
+                            <label class="flex items-center cursor-pointer gap-2 text-sm">
+                                <input x-model="context.hackedBefore" type="checkbox" class="w-5 h-5 accent-[#00FF9D]">
+                                <span class="text-red-400 font-bold">Уже взламывали</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-2">Обнаруженные каналы и соцсети</label>
+                        <div class="flex flex-wrap gap-2">
+                            <template x-for="ch in ['Telegram', 'WhatsApp', 'Email', 'VK', 'LinkedIn']" :key="ch">
+                                <label class="text-xs border border-[#2d3342] px-3 py-1.5 rounded-lg cursor-pointer hover:border-[#00FF9D] transition-colors" :class="context.channels.includes(ch) ? 'bg-[#00FF9D]/20 border-[#00FF9D] text-[#00FF9D]' : 'bg-[#0f1115] text-gray-400'">
+                                    <input type="checkbox" class="hidden" :value="ch" x-model="context.channels">
+                                    <span x-text="ch"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tg-card p-6 rounded-3xl text-center">
+                <button type="button" @click="copyPrompt()" class="w-full md:w-2/3 mx-auto bg-[#00FF9D] hover:bg-emerald-400 text-black font-black py-4 rounded-2xl text-lg transition-all flex justify-center items-center gap-2 shadow-[0_0_20px_rgba(0,255,157,0.2)]">
+                    <i class="fa-solid fa-robot"></i> 1. СКОПИРОВАТЬ ПРОМПТ ДЛЯ ИИ
+                </button>
+                <div x-show="errorMsg" class="mt-4 text-red-400 text-sm font-bold"><span x-text="errorMsg"></span></div>
+            </div>
+
+            <div x-show="promptCopied" x-transition class="tg-card p-6 rounded-3xl border border-[#00FF9D]/30 space-y-4">
+                <div class="text-[#00FF9D] flex items-center justify-center gap-3 mb-2">
+                    <i class="fa-solid fa-check-circle text-xl"></i>
+                    <p class="font-bold">Промпт готов. Отдайте его нейросети и вставьте JSON-ответ сюда:</p>
+                </div>
+                <textarea x-model="grokResponse" rows="4" class="w-full bg-[#0f1115] rounded-2xl p-4 font-mono text-sm focus:border-[#00FF9D]" placeholder='{"behavioral_archetype": "...", ...}'></textarea>
+                
+                <button type="button" @click="parseProfileAndRecommend()" class="w-full py-4 border-2 border-[#00FF9D] text-[#00FF9D] font-bold rounded-2xl hover:bg-[#00FF9D] hover:text-black transition-all flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-microchip"></i> 2. АНАЛИЗИРОВАТЬ И ПОДОБРАТЬ АТАКИ
+                </button>
+            </div>
+        </div>
+
+        <div x-show="step === 2" x-transition.opacity.duration.800ms class="space-y-6">
+            
+            <div id="export-content" class="bg-[#0f1115] p-2 space-y-6">
+                <div class="flex justify-between items-end border-b border-[#2d3342] pb-4">
+                    <div>
+                        <p class="text-xs font-mono text-gray-500 mb-1">TARGET DOSSIER</p>
+                        <h2 class="text-4xl font-black uppercase tracking-wider text-white" x-text="context.name || 'АНОНИМ'"></h2>
+                        <div class="flex gap-3 mt-2 text-sm text-[#00FF9D] font-mono">
+                            <span x-show="context.job"><i class="fa-solid fa-briefcase mr-1"></i> <span x-text="context.job"></span></span>
+                            <span x-show="context.age"><i class="fa-solid fa-cake-candles mr-1"></i> <span x-text="context.age + ' лет'"></span></span>
+                            <span x-show="context.location"><i class="fa-solid fa-location-dot mr-1"></i> <span x-text="context.location"></span></span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <i class="fa-solid fa-fingerprint text-5xl text-[#2d3342]"></i>
+                    </div>
+                </div>
+
+                <div class="tg-card p-6 rounded-3xl border-l-4 border-[#00FF9D] flex items-center gap-6">
+                    <div class="w-20 h-20 bg-[#00FF9D]/10 rounded-2xl flex items-center justify-center text-4xl tg-accent">
+                        <i class="fa-solid" :class="getArchetypeIcon()"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-black mb-1 uppercase tracking-wide" x-text="data?.behavioral_archetype"></h1>
+                        <p class="text-gray-400 text-sm leading-relaxed" x-text="data?.scientific_mapping"></p>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div class="tg-card p-6 rounded-3xl flex flex-col items-center col-span-1">
+                        <h3 class="font-bold mb-2 text-lg flex items-center gap-2"><i class="fa-solid fa-chart-pie tg-accent"></i> Big 5</h3>
+                        <div class="relative w-full max-w-[220px] aspect-square"><canvas id="radarChart"></canvas></div>
+                    </div>
+
+                    <div class="tg-card p-6 rounded-3xl border border-red-900/30 flex flex-col justify-center col-span-1">
+                        <h3 class="font-bold mb-6 text-lg text-red-400 flex items-center gap-2"><i class="fa-solid fa-skull"></i> Тёмная триада</h3>
+                        <div class="space-y-5 w-full">
+                            <template x-for="(val, key) in data?.darkTriad" :key="key">
+                                <div>
+                                    <div class="flex justify-between text-sm mb-2"><span x-text="translateKey(key)" class="font-medium text-gray-300"></span><span class="text-red-400 font-mono" x-text="val + '%'"></span></div>
+                                    <div class="progress-bar h-2"><div class="progress-fill bg-red-600" :style="`width: ${animateBars ? val : 0}%`"></div></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="tg-card p-6 rounded-3xl border border-orange-500/30 col-span-1 flex flex-col justify-center">
+                        <h3 class="font-bold mb-4 text-orange-400 flex items-center gap-2"><i class="fa-solid fa-bolt"></i> Уязвимости</h3>
+                        <ul class="space-y-3">
+                            <template x-for="(vuln, idx) in data?.vulnerabilities" :key="idx">
+                                <li class="text-sm text-gray-300 flex items-start gap-2"><i class="fa-solid fa-angle-right text-orange-500 mt-1"></i><span x-text="vuln"></span></li>
+                            </template>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="tg-card p-6 rounded-3xl border-2 border-[#00FF9D]/30 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 bg-[#00FF9D] text-black text-xs font-bold px-3 py-1 rounded-bl-xl z-10">AI RECOMMENDATIONS</div>
+                    <h3 class="font-black mb-6 text-xl flex items-center gap-3">
+                        <i class="fa-solid fa-crosshairs tg-accent"></i> Персонализированные векторы атаки
+                        <span class="text-xs font-normal text-gray-400 hidden md:inline">С учетом профиля и демографии</span>
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <template x-for="(attack, idx) in recommendedAttacks" :key="idx">
+                            <div class="bg-[#0f1115] border border-[#2d3342] p-5 rounded-2xl hover:border-[#00FF9D]/50 transition-all">
+                                <div class="flex justify-between items-start mb-3">
+                                    <h4 class="font-bold text-[#00FF9D] text-lg" x-text="`№${idx+1} — ${attack.title}`"></h4>
+                                    <span class="text-sm font-mono bg-[#2d3342] px-3 py-1 rounded-lg text-white font-bold" x-text="`Score: ${(attack.score * 100).toFixed(1)}%`"></span>
+                                </div>
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    <span class="text-xs bg-[#1a1d24] text-gray-300 px-2 py-1 rounded" x-text="`Глава ${attack.chapter} • ${attack.section}`"></span>
+                                    <span class="text-xs bg-purple-900/30 text-purple-300 border border-purple-500/30 px-2 py-1 rounded" x-text="attack.type"></span>
+                                    <span class="text-xs bg-red-900/30 text-red-300 border border-red-500/30 px-2 py-1 rounded" x-text="attack.malicious_action"></span>
+                                </div>
+                                <div class="bg-[#1a1d24] p-4 rounded-xl text-sm border-l-4 border-[#00FF9D] text-gray-200 font-mono mb-3 leading-relaxed" x-text="attack.text"></div>
+                                <div class="text-xs text-blue-300 bg-blue-900/20 p-3 rounded-xl flex items-start gap-2 border border-blue-500/20">
+                                    <i class="fa-solid fa-brain mt-0.5"></i>
+                                    <span x-text="attack.explanation"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-4 pb-10">
+                <button @click="downloadPDF()" class="w-1/2 py-4 bg-[#00FF9D] text-black font-bold rounded-2xl hover:bg-emerald-400 transition-colors shadow-lg"><i class="fa-solid fa-file-pdf"></i> PDF ОТЧЕТ</button>
+                <button @click="resetToStart()" class="w-1/2 py-4 border border-[#2d3342] rounded-2xl hover:bg-[#2d3342] font-bold text-gray-300">НОВАЯ ЦЕЛЬ</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // === ВСТАВЬТЕ СЮДА ВСЕ 130 ПРИМЕРОВ ИЗ ВАШИХ СООБЩЕНИЙ ===
+        // Я собрал демо-кусок из того, что вы скинули. Дополните массив остальными.
         const RAW_DATABASE = [
-            { id: 'ex_001', chapter: '1', section: 'Phishing', title: 'Email Phishing', description: 'A fraudulent attempt to obtain sensitive information...', text: 'Beware of emails asking for personal data.', type: 'Online Attack', malicious_action: 'Stealing credentials' },
-            { id: 'ex_002', chapter: '1', section: 'Phishing', title: 'Spear Phishing', description: 'Targeting specific individuals...', text: 'Meant to look legitimate to the victim.', type: 'Online Attack', malicious_action: 'Identity theft' },
-            // ... continue defining all examples up to ex_130
-            { id: 'ex_130', chapter: '10', section: 'Physical Access', title: 'Using USB devices', description: 'Leaving infected USB drives in public places...', text: 'Leads to malware installation upon connection.', type: 'Offline Attack', malicious_action: 'Unauthorized access' }
-        ];
+  {
+    "id": "ex_001",
+    "chapter": "1",
+    "section": "Событийные атаки",
+    "title": "ПРИМЕР 1 — Приложение для отслеживания заражённых",
+    "description": "Массовая атака с призывом скачать приложение",
+    "text": "Скачайте приложение, чтобы отслеживать зараженных вирусом людей рядом с вами.",
+    "type": "массовая",
+    "malicious_action": "скачивание вредоносного приложения"
+  },
+  {
+    "id": "ex_002",
+    "chapter": "1",
+    "section": "Событийные атаки",
+    "title": "ПРИМЕР 2 — Шифрованная связь",
+    "description": "Приказ скачать приложение для шифрованной связи",
+    "text": "Коллеги, для обеспечения шифрованной связи с удалёнными сотрудниками просьба сегодня скачать приложение.",
+    "type": "смешанная",
+    "malicious_action": "скачивание вредоносного файла"
+  },
+  {
+    "id": "ex_003",
+    "chapter": "1",
+    "section": "Событийные атаки",
+    "title": "ПРИМЕР 3 — Беспроцентный кредит от банка",
+    "description": "Предложение кредита от обслуживающего банка",
+    "text": "Для нашей организации обслуживающий банк предоставляет беспроцентный кредит на 1 год… Образец заявления во вложении.",
+    "type": "таргетированная",
+    "malicious_action": "вложение с макросом"
+  },
+  {
+    "id": "ex_004",
+    "chapter": "1",
+    "section": "Событийные атаки",
+    "title": "ПРИМЕР 4 — Обновление правил поведения в Москве",
+    "description": "Карантинные ограничения + ссылка",
+    "text": "В связи с обновлением правил поведения жителей г. Москвы на время карантина…",
+    "type": "массовая",
+    "malicious_action": "фишинговый сайт"
+  },
+  {
+    "id": "ex_005",
+    "chapter": "1",
+    "section": "Событийные атаки",
+    "title": "ПРИМЕР 5 — Политическая тематика",
+    "description": "Событийная атака на политическую тему",
+    "text": "В связи с текущей политической ситуацией…",
+    "type": "массовая",
+    "malicious_action": "фишинг"
+  },
+  {
+    "id": "ex_006",
+    "chapter": "1",
+    "section": "Контекст: причина — Якобы взлом",
+    "title": "ПРИМЕР — Письмо о взломе аккаунта",
+    "description": "Классический BEC-вариант",
+    "text": "Ваш аккаунт был взломан. Для восстановления перейдите по ссылке и введите данные.",
+    "type": "таргетированная",
+    "malicious_action": "кража учётных данных"
+  },
+  {
+    "id": "ex_007",
+    "chapter": "1",
+    "section": "Контекст: причина — Внеплановая проверка от СРО",
+    "title": "ПРИМЕР — Жалобы потребителей на МФО",
+    "description": "Письмо от саморегулируемой организации",
+    "text": "СРО «МиР» получила несколько жалоб потребителей микрофинансовых услуг на вашу МФО…",
+    "type": "таргетированная",
+    "malicious_action": "фишинг"
+  },
+  {
+    "id": "ex_008",
+    "chapter": "1",
+    "section": "Контекст: запросы / вопросы",
+    "title": "ПРИМЕР — Вопрос с вложением",
+    "description": "Ответ на якобы предыдущее письмо",
+    "text": "Добрый день. Согласно последним жалобам… (вложение)",
+    "type": "смешанная",
+    "malicious_action": "вредоносное вложение"
+  },
+  {
+    "id": "ex_009",
+    "chapter": "1",
+    "section": "Контекст: изменения",
+    "title": "ПРИМЕР — Изменения в проекте",
+    "description": "Упоминание знакомого проекта",
+    "text": "В связи с изменениями в проекте, с которым вы работаете…",
+    "type": "смешанная",
+    "malicious_action": "фишинг"
+  },
+  {
+    "id": "ex_010",
+    "chapter": "1",
+    "section": "Контекст: желание",
+    "title": "ПРИМЕР — Премии и распродажа со склада",
+    "description": "Желание получить деньги/товар",
+    "text": "Коллеги. В связи со сменой ассортимента продукция со склада будет распродана среди работников…",
+    "type": "смешанная",
+    "malicious_action": "фишинговая ссылка"
+  },
+  {
+    "id": "ex_011",
+    "chapter": "1",
+    "section": "Усиление контекста: давление",
+    "title": "ПРИМЕР — Список на сокращение",
+    "description": "Страх увольнения",
+    "text": "В связи с реорганизацией опубликован предварительный список сотрудников на сокращение.",
+    "type": "таргетированная",
+    "malicious_action": "кража данных"
+  },
+  {
+    "id": "ex_012",
+    "chapter": "1",
+    "section": "Усиление контекста: ложь",
+    "title": "ПРИМЕР 1 — Корпоратив по случаю Дня независимости",
+    "description": "Фейковый корпоратив + опрос",
+    "text": "В связи с тем, что у нас будет ежегодный корпоратив, посвященный празднованию Дня независимости нашего офиса, необходимо заполнить опрос.",
+    "type": "смешанная",
+    "malicious_action": "фишинг"
+  },
+  {
+    "id": "ex_013",
+    "chapter": "1",
+    "section": "Усиление контекста: ложь",
+    "title": "ПРИМЕР 2 — Слияние/поглощение",
+    "description": "Фейковое слияние компаний",
+    "text": "В связи с происходящим слиянием/поглощением с ОАО «…», нужно сделать следующее…",
+    "type": "таргетированная",
+    "malicious_action": "вредоносное действие"
+  },
+  {
+    "id": "ex_014",
+    "chapter": "1",
+    "section": "Файлы — Некорректное отображение",
+    "title": "ПРИМЕР — Файл с неправильной кодировкой",
+    "description": "Имитация текста в файле",
+    "text": "Текст отображается некорректно. Откройте файл в другом редакторе.",
+    "type": "массовая",
+    "malicious_action": "вредоносный файл"
+  },
+  {
+    "id": "ex_015",
+    "chapter": "1",
+    "section": "Файлы — Подарочный сертификат",
+    "title": "ПРИМЕР — Фейковый сертификат в Word",
+    "description": "Техническая проблема + сертификат",
+    "text": "Ваш подарочный сертификат не отображается корректно. Откройте файл и разрешите макросы.",
+    "type": "массовая",
+    "malicious_action": "макрос"
+  },
+  {
+    "id": "ex_016",
+    "chapter": "1",
+    "section": "Файлы — Пустой файл",
+    "title": "ПРИМЕР — Пустой документ с требованием макросов",
+    "description": "Документ пуст — нужно разрешить макросы",
+    "text": "Документ пуст. Разрешите макросы, чтобы увидеть полное содержимое.",
+    "type": "массовая",
+    "malicious_action": "макрос"
+  },
+  {
+    "id": "ex_017",
+    "chapter": "1",
+    "section": "Файлы — Документ с «мыльцой»",
+    "title": "ПРИМЕР — Замыленное содержимое + приказ",
+    "description": "Инструкция «нажмите кнопку»",
+    "text": "Содержимое замылено. Нажмите кнопку «Просмотреть полный текст» внизу.",
+    "type": "смешанная",
+    "malicious_action": "фишинговая кнопка"
+  },
+  {
+    "id": "ex_018",
+    "chapter": "1",
+    "section": "Файлы — ICS",
+    "title": "ПРИМЕР — Файл ICS на iPhone",
+    "description": "Календарное событие с напоминанием",
+    "text": "Напоминание о встрече в 9:05. Вы опаздываете!",
+    "type": "массовая",
+    "malicious_action": "фишинговая ссылка"
+  },
+  {
+    "id": "ex_019",
+    "chapter": "1",
+    "section": "Социальные сети — Клонирование аккаунтов",
+    "title": "ПРИМЕР — Поддельный рекрутер",
+    "description": "Многоходовка через LinkedIn/Facebook",
+    "text": "Здравствуйте! Мы увидели ваше резюме и хотим пригласить вас на позицию…",
+    "type": "таргетированная",
+    "malicious_action": "data-phishing"
+  },
+  {
+    "id": "ex_020",
+    "chapter": "1",
+    "section": "Find trap сценарии",
+    "title": "ПРИМЕР — Выдуманная компания + рекомендации",
+    "description": "Жертва сама ищет компанию",
+    "text": "Мы рекомендуем обратиться в компанию X для решения вашего вопроса.",
+    "type": "таргетированная",
+    "malicious_action": "find trap"
+  },
+  {
+    "id": "ex_021",
+    "chapter": "2",
+    "section": "Маскировка ссылок",
+    "title": "ПРИМЕР — Символ @ + Unicode",
+    "description": "Классическая обфускация",
+    "text": "https://www.facebook.com/aaqweqwewwqdeq:wdeqwdeqdwqwde@ya.ru",
+    "type": "массовая",
+    "malicious_action": "фишинговая ссылка"
+  },
+  {
+    "id": "ex_022",
+    "chapter": "2",
+    "section": "QR-коды",
+    "title": "ПРИМЕР — Корпоративный QR-код у Wi-Fi",
+    "description": "QR рядом с точкой доступа",
+    "text": "Отсканируйте QR для подключения к корпоративному Wi-Fi.",
+    "type": "массовая",
+    "malicious_action": "вредоносный QR"
+  },
+  {
+    "id": "ex_023",
+    "chapter": "2",
+    "section": "PDF-файлы",
+    "title": "ПРИМЕР — Всплывающее окно в PDF",
+    "description": "PDF с предупреждением и кнопкой",
+    "text": "Ваш сертификат безопасности истёк. Нажмите «Обновить» ниже.",
+    "type": "массовая",
+    "malicious_action": "фишинг в PDF"
+  },
+  {
+    "id": "ex_024",
+    "chapter": "3",
+    "section": "Проникновение на физические объекты — Паровозик",
+    "title": "ПРИМЕР — Tailgating через открытую дверь",
+    "description": "Классика оффлайн-СИ",
+    "text": "Держу дверь! Спасибо!",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_025",
+    "chapter": "3",
+    "section": "USB-устройства",
+    "title": "ПРИМЕР — Таргетированная флешка с легендой",
+    "description": "Флешка + записка",
+    "text": "«Для Иванова А.И. — отчёт за квартал»",
+    "type": "оффлайн",
+    "malicious_action": "BadUSB / keystroke"
+  },
+  {
+    "id": "ex_026",
+    "chapter": "3",
+    "section": "Вишинг",
+    "title": "ПРИМЕР — Callback phishing",
+    "description": "Звонок с просьбой перезвонить",
+    "text": "Ваш аккаунт заблокирован. Перезвоните по номеру …",
+    "type": "оффлайн",
+    "malicious_action": "вишинг"
+  },
+  {
+    "id": "ex_027",
+    "chapter": "1",
+    "section": "Многоходовки",
+    "title": "ПРИМЕР — Отложенная отправка",
+    "description": "Письмо приходит позже",
+    "text": "Отложенная отправка с фейковым временем",
+    "type": "таргетированная",
+    "malicious_action": "BEC"
+  },
+  {
+    "id": "ex_028",
+    "chapter": "2",
+    "section": "Маскировка ссылок — Домен после слеша",
+    "title": "ПРИМЕР — bank.ru/action.com",
+    "description": "Имитация слеша буквой",
+    "text": "bank.ru/action.com (буква I курсивом выглядит как /)",
+    "type": "массовая",
+    "malicious_action": "фишинговая ссылка"
+  },
+  {
+    "id": "ex_029",
+    "chapter": "1",
+    "section": "Фейковые посетители",
+    "title": "ПРИМЕР — Нестандартная атака на маркетологов",
+    "description": "Фейковые посетители сайта",
+    "text": "Мы увидели ваш сайт и хотим предложить сотрудничество…",
+    "type": "таргетированная",
+    "malicious_action": "data-phishing"
+  },
+  {
+    "id": "ex_030",
+    "chapter": "2",
+    "section": "Вложения и файлы — HTML-файлы",
+    "title": "ПРИМЕР — Маскировка расширения html",
+    "description": "Файл с двойным расширением",
+    "text": "Документ.docx.html",
+    "type": "массовая",
+    "malicious_action": "вредоносный HTML"
+  }
+] [
+  {
+    "id": "ex_031",
+    "chapter": "1",
+    "section": "Социальные сети — Многоходовка",
+    "title": "ПРИМЕР — Многоходовка в соцсети",
+    "description": "Постепенное вхождение в доверие",
+    "text": "Здравствуйте! Увидел ваш пост про … Очень интересно, можем обсудить?",
+    "type": "таргетированная",
+    "malicious_action": "data-phishing"
+  },
+  {
+    "id": "ex_032",
+    "chapter": "1",
+    "section": "Мессенджеры — Telegram-каналы",
+    "title": "ПРИМЕР — Фейковый Telegram-канал",
+    "description": "Приглашение в закрытый канал",
+    "text": "Присоединяйтесь к закрытому каналу компании для важных объявлений.",
+    "type": "смешанная",
+    "malicious_action": "фишинговая ссылка"
+  },
+  {
+    "id": "ex_033",
+    "chapter": "1",
+    "section": "Веб-сайты — Поддельное окно логина",
+    "title": "ПРИМЕР — Поддельное окно для ввода логина и пароля",
+    "description": "Имитация корпоративного портала",
+    "text": "Ваша учётная запись заблокирована. Войдите для разблокировки.",
+    "type": "таргетированная",
+    "malicious_action": "кража учётных данных"
+  },
+  {
+    "id": "ex_034",
+    "chapter": "1",
+    "section": "Веб-сайты — Скачайте на нашем сайте",
+    "title": "ПРИМЕР — Скачайте файл с корпоративного сайта",
+    "description": "Ссылка на фейковый корпоративный ресурс",
+    "text": "Новый приказ размещён на внутреннем портале. Скачайте здесь.",
+    "type": "смешанная",
+    "malicious_action": "вредоносный файл"
+  },
+  {
+    "id": "ex_035",
+    "chapter": "1",
+    "section": "Веб-сайты — Корпоративные порталы",
+    "title": "ПРИМЕР — Разрешите уточнить",
+    "description": "Запрос на подтверждение данных",
+    "text": "Для подтверждения данных перейдите по ссылке на портал.",
+    "type": "таргетированная",
+    "malicious_action": "фишинг"
+  },
+  {
+    "id": "ex_036",
+    "chapter": "2",
+    "section": "Маскировка ссылок — Punycode",
+    "title": "ПРИМЕР — Домены в Punycode",
+    "description": "Визуально похожий домен",
+    "text": "https://xn--80a1acdf1a.xn--p1ai (выглядит как bank.ru)",
+    "type": "массовая",
+    "malicious_action": "фишинговая ссылка"
+  },
+  {
+    "id": "ex_037",
+    "chapter": "2",
+    "section": "Маскировка ссылок — Обфускация",
+    "title": "ПРИМЕР — Зашумление юникодом",
+    "description": "Невидимые символы в ссылке",
+    "text": "https://bank.ru‌/update (невидимый символ между)",
+    "type": "массовая",
+    "malicious_action": "фишинговая ссылка"
+  },
+  {
+    "id": "ex_038",
+    "chapter": "2",
+    "section": "Вложения и файлы — Архивы с паролем",
+    "title": "ПРИМЕР — Архив с паролем",
+    "description": "Пароль в теле письма",
+    "text": "Пароль от архива: 12345. Откройте документ.",
+    "type": "смешанная",
+    "malicious_action": "вредоносный архив"
+  },
+  {
+    "id": "ex_039",
+    "chapter": "2",
+    "section": "Вложения и файлы — Редко используемые форматы",
+    "title": "ПРИМЕР — Редко используемые форматы архивов",
+    "description": "7z, RAR, ISO вместо ZIP",
+    "text": "Отчёт в формате .7z во вложении.",
+    "type": "массовая",
+    "malicious_action": "вредоносный архив"
+  },
+  {
+    "id": "ex_040",
+    "chapter": "2",
+    "section": "Технологические трюки — Редиректы",
+    "title": "ПРИМЕР — Многоступенчатый редирект",
+    "description": "Скрытие конечного домена",
+    "text": "Короткая ссылка → bit.ly → fake-site.ru",
+    "type": "массовая",
+    "malicious_action": "фишинговая ссылка"
+  },
+  {
+    "id": "ex_041",
+    "chapter": "3",
+    "section": "Проникновение на физические объекты — Подслушанная легенда",
+    "title": "ПРИМЕР — Подслушанная легенда",
+    "description": "Использование услышанной информации",
+    "text": "Я от Иванова из IT-отдела, он сказал, что можно пройти.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_042",
+    "chapter": "3",
+    "section": "Проникновение на физические объекты — Корпоративная столовая",
+    "title": "ПРИМЕР — Корпоративная столовая",
+    "description": "Проход под видом сотрудника",
+    "text": "Я новый сотрудник, пропуск ещё не сделали.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_043",
+    "chapter": "3",
+    "section": "USB-устройства — Juice Jacking",
+    "title": "ПРИМЕР — Juice Jacking",
+    "description": "Зарядка через публичный USB",
+    "text": "Подключаетесь к USB-зарядке в аэропорту.",
+    "type": "оффлайн",
+    "malicious_action": "заражение устройства"
+  },
+  {
+    "id": "ex_044",
+    "chapter": "3",
+    "section": "Смишинг",
+    "title": "ПРИМЕР — Смишинг с короткой ссылкой",
+    "description": "SMS с фишинговой ссылкой",
+    "text": "Ваша посылка на почте. Перейдите по ссылке для получения.",
+    "type": "массовая",
+    "malicious_action": "фишинг"
+  },
+  {
+    "id": "ex_045",
+    "chapter": "3",
+    "section": "Вишинг — Многоходовый звонок",
+    "title": "ПРИМЕР — Многоходовый звонок",
+    "description": "Серия звонков для повышения доверия",
+    "text": "Сначала звонок от «службы безопасности», потом от «коллеги».",
+    "type": "таргетированная",
+    "malicious_action": "вишинг"
+  },
+  {
+    "id": "ex_046",
+    "chapter": "3",
+    "section": "Бумага не во благо — Подбрасывание документов",
+    "title": "ПРИМЕР — Подбрасывание корпоративных документов",
+    "description": "Флешка или бумага с легендой",
+    "text": "Найденная флешка с надписью «Отчёт 2026».",
+    "type": "оффлайн",
+    "malicious_action": "вредоносная флешка"
+  },
+  {
+    "id": "ex_047",
+    "chapter": "3",
+    "section": "QR-коды на бумажных носителях",
+    "title": "[
+  {
+    "id": "ex_061",
+    "chapter": "1",
+    "section": "Веб-сайты — Всплывающее окно",
+    "title": "ПРИМЕР — Всплывающее окно с предупреждением",
+    "description": "Фейковое всплывающее окно на сайте",
+    "text": "Ваша сессия истекла. Нажмите «Продолжить» для входа.",
+    "type": "массовая",
+    "malicious_action": "кража учётных данных"
+  },
+  {
+    "id": "ex_062",
+    "chapter": "1",
+    "section": "Реклама — Таргет по МАС-адресу",
+    "title": "ПРИМЕР — Таргетированная реклама по MAC",
+    "description": "Реклама, привязанная к MAC-адресу устройства",
+    "text": "Ваше устройство обнаружено в сети. Перейдите для обновления драйверов.",
+    "type": "таргетированная",
+    "malicious_action": "вредоносная реклама"
+  },
+  {
+    "id": "ex_063",
+    "chapter": "1",
+    "section": "Реклама — Таргет по геолокации",
+    "title": "ПРИМЕР — Геотаргетированная реклама",
+    "description": "Реклама, учитывающая местоположение",
+    "text": "Вы находитесь рядом с офисом. Получите пропуск по ссылке.",
+    "type": "таргетированная",
+    "malicious_action": "фишинг"
+  },
+  {
+    "id": "ex_064",
+    "chapter": "1",
+    "section": "Лидеры мнений",
+    "title": "ПРИМЕР — Видео-deepfake от лидера мнений",
+    "description": "Deepfake-видео с известным человеком",
+    "text": "Видео от руководителя компании с просьбой перейти по ссылке.",
+    "type": "таргетированная",
+    "malicious_action": "deepfake-фишинг"
+  },
+  {
+    "id": "ex_065",
+    "chapter": "1",
+    "section": "Видео-deepfake",
+    "title": "ПРИМЕР — Видео без видео",
+    "description": "Аудио-deepfake без изображения",
+    "text": "Голос руководителя в мессенджере: «Срочно переведи деньги».",
+    "type": "таргетированная",
+    "malicious_action": "голосовой deepfake"
+  },
+  {
+    "id": "ex_066",
+    "chapter": "2",
+    "section": "Маскировка ссылок — Очень длинная ссылка",
+    "title": "ПРИМЕР — Очень длинная ссылка",
+    "description": "Ссылка, скрывающая реальный домен",
+    "text": "https://company.ru/...[очень длинная строка]...update",
+    "type": "массовая",
+    "malicious_action": "фишинговая ссылка"
+  },
+  {
+    "id": "ex_067",
+    "chapter": "2",
+    "section": "Невидимая при наведении мыши",
+    "title": "ПРИМЕР — Невидимая ссылка при наведении",
+    "description": "Ссылка скрыта CSS",
+    "text": "Наведите курсор на текст — появится скрытая ссылка.",
+    "type": "массовая",
+    "malicious_action": "фишинговая ссылка"
+  },
+  {
+    "id": "ex_068",
+    "chapter": "2",
+    "section": "Одноразовые ссылки",
+    "title": "ПРИМЕР — Одноразовая ссылка",
+    "description": "Ссылка работает только один раз",
+    "text": "Ссылка действительна 5 минут. Не пересылайте никому.",
+    "type": "таргетированная",
+    "malicious_action": "фишинг"
+  },
+  {
+    "id": "ex_069",
+    "chapter": "2",
+    "section": "Файлы Microsoft Office",
+    "title": "ПРИМЕР — Рушим шаблоны поведения через печать",
+    "description": "Призыв распечатать документ",
+    "text": "Распечатайте документ и подпишите. Скан пришлите обратно.",
+    "type": "смешанная",
+    "malicious_action": "макрос"
+  },
+  {
+    "id": "ex_070",
+    "chapter": "2",
+    "section": "HTML-файлы",
+    "title": "ПРИМЕР — Маскировка расширения html",
+    "description": "Файл report.docx.html",
+    "text": "Отчёт за квартал (откройте в браузере).",
+    "type": "массовая",
+    "malicious_action": "вредоносный HTML"
+  },
+  {
+    "id": "ex_071",
+    "chapter": "3",
+    "section": "Отвлекающий маневр",
+    "title": "ПРИМЕР — Отвлекающий маневр",
+    "description": "Один человек отвлекает охрану",
+    "text": "Сотрудник отвлекает, пока второй проникает.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_072",
+    "chapter": "3",
+    "section": "Потенциальный клиент",
+    "title": "ПРИМЕР — Потенциальный клиент",
+    "description": "Проникновение под видом клиента",
+    "text": "Я потенциальный клиент, хочу посмотреть офис.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_073",
+    "chapter": "3",
+    "section": "Собеседование",
+    "title": "ПРИМЕР — Собеседование",
+    "description": "Проникновение под видом соискателя",
+    "text": "Я на собеседование в 14:00.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_074",
+    "chapter": "3",
+    "section": "Подделка карты-пропуска",
+    "title": "ПРИМЕР — Подделка карты-пропуска",
+    "description": "Фальшивый пропуск",
+    "text": "Пропуск выглядит как настоящий.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_075",
+    "chapter": "3",
+    "section": "Вернитесь на работу",
+    "title": "ПРИМЕР — Вернитесь на работу",
+    "description": "Звонок с требованием вернуться",
+    "text": "Срочно вернитесь в офис — проблема с сервером.",
+    "type": "таргетированная",
+    "malicious_action": "вишинг"
+  },
+  {
+    "id": "ex_076",
+    "chapter": "3",
+    "section": "Забыл кодовое слово",
+    "title": "ПРИМЕР — Забыл кодовое слово",
+    "description": "Социальная инженерия по телефону",
+    "text": "Я забыл кодовое слово, подскажите, пожалуйста.",
+    "type": "таргетированная",
+    "malicious_action": "вишинг"
+  },
+  {
+    "id": "ex_077",
+    "chapter": "3",
+    "section": "Отсылка к отпускнику",
+    "title": "ПРИМЕР — Отсылка к отпускнику",
+    "description": "Использование отсутствующего сотрудника",
+    "text": "Иванов в отпуске, он сказал, что вы поможете.",
+    "type": "таргетированная",
+    "malicious_action": "вишинг"
+  },
+  {
+    "id": "ex_078",
+    "chapter": "3",
+    "section": "Синхронный ввод",
+    "title": "ПРИМЕР — Синхронный ввод",
+    "description": "Одновременный ввод данных по телефону",
+    "text": "Давайте введём данные одновременно.",
+    "type": "таргетированная",
+    "malicious_action": "вишинг"
+  },
+  {
+    "id": "ex_079",
+    "chapter": "3",
+    "section": "Китовые атаки",
+    "title": "ПРИМЕР — Китовая атака (whaling)",
+    "description": "Атака на топ-менеджмент",
+    "text": "Срочное поручение от генерального директора.",
+    "type": "таргетированная",
+    "malicious_action": "BEC"
+  },
+  {
+    "id": "ex_080",
+    "chapter": "3",
+    "section": "Усиление звонком",
+    "title": "ПРИМЕР — Усиление звонком",
+    "description": "Звонок после письма",
+    "text": "Звоню по поводу письма, которое я отправил.",
+    "type": "таргетированная",
+    "malicious_action": "вишинг"
+  },
+  {
+    "id": "ex_081",
+    "chapter": "3",
+    "section": "Квид про кво",
+    "title": "ПРИМЕР — Квид про кво (Quid pro quo)",
+    "description": "«Услуга за услугу»",
+    "text": "Помогите мне, а я помогу вам с отчётом.",
+    "type": "таргетированная",
+    "malicious_action": "социальная инженерия"
+  },
+  {
+    "id": "ex_082",
+    "chapter": "3",
+    "section": "Callback phishing",
+    "title": "ПРИМЕР — Callback phishing",
+    "description": "Просьба перезвонить",
+    "text": "Ваш аккаунт под угрозой. Перезвоните по номеру ниже.",
+    "type": "таргетированная",
+    "malicious_action": "вишинг"
+  },
+  {
+    "id": "ex_083",
+    "chapter": "3",
+    "section": "Нас взломали, помогите восстановить",
+    "title": "ПРИМЕР — Нас взломали, помогите восстановить",
+    "description": "Просьба о помощи после взлома",
+    "text": "Нас взломали. Помогите восстановить доступ.",
+    "type": "таргетированная",
+    "malicious_action": "BEC"
+  },
+  {
+    "id": "ex_084",
+    "chapter": "3",
+    "section": "Визуальный пропуск",
+    "title": "ПРИМЕР — Визуальный пропуск",
+    "description": "Специальная одежда",
+    "text": "Я в фирменной куртке службы доставки.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_085",
+    "chapter": "3",
+    "section": "Реклама на бумаге",
+    "title": "ПРИМЕР — Реклама на бумаге с QR",
+    "description": "QR-код на листовке",
+    "text": "Сканируйте QR для получения скидки на корпоративный обед.",
+    "type": "оффлайн",
+    "malicious_action": "вредоносный QR"
+  },
+  {
+    "id": "ex_086",
+    "chapter": "3",
+    "section": "Общественный транспорт",
+    "title": "ПРИМЕР — Атака в общественном транспорте",
+    "description": "Проникновение через разговор",
+    "text": "Разговор в метро с целью получить информацию.",
+    "type": "оффлайн",
+    "malicious_action": "разведка"
+  },
+  {
+    "id": "ex_087",
+    "chapter": "3",
+    "section": "Wi-Fi",
+    "title": "ПРИМЕР — Поддельная точка Wi-Fi",
+    "description": "Evil Twin Wi-Fi",
+    "text": "Подключение к фейковой корпоративной Wi-Fi.",
+    "type": "оффлайн",
+    "malicious_action": "перехват трафика"
+  },
+  {
+    "id": "ex_088",
+    "chapter": "3",
+    "section": "Мероприятия — Двухдневное мероприятие",
+    "title": "ПРИМЕР — Двухдневное мероприятие",
+    "description": "Проникновение на корпоратив",
+    "text": "Я участник вчерашнего дня, сегодня забыл бейдж.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_089",
+    "chapter": "3",
+    "section": "Комбинирование",
+    "title": "ПРИМЕР — Комбинированная атака",
+    "description": "Email + звонок + USB",
+    "text": "Комбинация нескольких векторов.",
+    "type": "таргетированная",
+    "malicious_action": "многоуровневая атака"
+  },
+  {
+    "id": "ex_090",
+    "chapter": "3",
+    "section": "Истории для вдохновения — Пентест тюрьмы",
+    "title": "ПРИМЕР — Пентест тюрьмы",
+    "description": "Реальный кейс проникновения",
+    "text": "Пример успешного пентеста охраняемого объекта.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  }
+] [
+  {
+    "id": "ex_091",
+    "chapter": "1",
+    "section": "Цепочки писем — Неправильная кодировка",
+    "title": "ПРИМЕР — Цепочка с неправильной кодировкой",
+    "description": "Повод открыть вложение из-за «битого» текста",
+    "text": "Текст отображается кракозябрами. Откройте вложение в Word.",
+    "type": "смешанная",
+    "malicious_action": "вредоносное вложение"
+  },
+  {
+    "id": "ex_092",
+    "chapter": "1",
+    "section": "Цепочки писем — Простите, не туда",
+    "title": "ПРИМЕР — Цепочка «Простите, не туда»",
+    "description": "Фейковая пересылка «по ошибке»",
+    "text": "Ой, простите, это письмо не вам. Но раз уж открыли — посмотрите.",
+    "type": "таргетированная",
+    "malicious_action": "фишинг"
+  },
+  {
+    "id": "ex_093",
+    "chapter": "1",
+    "section": "Цепочки писем — Нас взломали",
+    "title": "ПРИМЕР — Цепочка «Нас взломали»",
+    "description": "Массовое уведомление о взломе",
+    "text": "Коллеги, нас взломали! Срочно перейдите по ссылке и смените пароль.",
+    "type": "массовая",
+    "malicious_action": "BEC"
+  },
+  {
+    "id": "ex_094",
+    "chapter": "1",
+    "section": "Data-phishing",
+    "title": "ПРИМЕР — Data-phishing через цепочку",
+    "description": "Сбор данных под видом уточнения",
+    "text": "Уточните, пожалуйста, ваши данные для обновления базы.",
+    "type": "таргетированная",
+    "malicious_action": "data-phishing"
+  },
+  {
+    "id": "ex_095",
+    "chapter": "1",
+    "section": "Фейковые посетители",
+    "title": "ПРИМЕР — Фейковые посетители сайта",
+    "description": "Атака на маркетологов",
+    "text": "Мы увидели ваш сайт и хотим предложить сотрудничество…",
+    "type": "таргетированная",
+    "malicious_action": "data-phishing"
+  },
+  {
+    "id": "ex_096",
+    "chapter": "2",
+    "section": "Маскировка ссылок — Ссылка в виде цифр",
+    "title": "ПРИМЕР — Ссылка виде цифр",
+    "description": "Ссылка, записанная цифрами",
+    "text": "http://172.217.160.0 (замаскированный Google)",
+    "type": "массовая",
+    "malicious_action": "фишинговая ссылка"
+  },
+  {
+    "id": "ex_097",
+    "chapter": "2",
+    "section": "Капча от ботов защитного ПО",
+    "title": "ПРИМЕР — Капча от ботов защитного ПО",
+    "description": "Обход антивируса через капчу",
+    "text": "Подтвердите, что вы не робот, чтобы скачать файл.",
+    "type": "массовая",
+    "malicious_action": "фишинг"
+  },
+  {
+    "id": "ex_098",
+    "chapter": "2",
+    "section": "Онлайн-документы",
+    "title": "ПРИМЕР — Excel-файл, размещенный онлайн",
+    "description": "Ссылка на Google Sheets / OneDrive",
+    "text": "Отчёт в облаке. Откройте по ссылке.",
+    "type": "смешанная",
+    "malicious_action": "вредоносный онлайн-документ"
+  },
+  {
+    "id": "ex_099",
+    "chapter": "3",
+    "section": "Отделение банка",
+    "title": "ПРИМЕР — Атака в отделении банка",
+    "description": "Социальная инженерия в банке",
+    "text": "Я из службы безопасности, покажите документы.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ / разведка"
+  },
+  {
+    "id": "ex_100",
+    "chapter": "3",
+    "section": "Мусорный дайвинг",
+    "title": "ПРИМЕР — Мусорный дайвинг",
+    "description": "Поиск документов в мусоре",
+    "text": "Изучение мусорных баков компании.",
+    "type": "оффлайн",
+    "malicious_action": "сбор информации"
+  },
+  {
+    "id": "ex_101",
+    "chapter": "1",
+    "section": "Легализованная СИ",
+    "title": "ПРИМЕР — Легализованная социальная инженерия",
+    "description": "Атака через легитимные каналы",
+    "text": "Отправили к вам запрос от руководства.",
+    "type": "смешанная",
+    "malicious_action": "сбор данных"
+  },
+  {
+    "id": "ex_102",
+    "chapter": "1",
+    "section": "Фейковое интервью",
+    "title": "ПРИМЕР — Фейковое интервью",
+    "description": "Рекрутинговая атака",
+    "text": "Мы проводим интервью на позицию… Пришлите резюме.",
+    "type": "таргетированная",
+    "malicious_action": "data-phishing"
+  },
+  {
+    "id": "ex_103",
+    "chapter": "2",
+    "section": "Архивы без пароля",
+    "title": "ПРИМЕР — Архивы без пароля",
+    "description": "Самораспаковывающийся архив",
+    "text": "Архив открывается автоматически.",
+    "type": "массовая",
+    "malicious_action": "вредоносный архив"
+  },
+  {
+    "id": "ex_104",
+    "chapter": "3",
+    "section": "Неприступная крепость",
+    "title": "ПРИМЕР — Неприступная крепость",
+    "description": "Реальный кейс проникновения в охраняемый объект",
+    "text": "Пример успешного обхода системы охраны.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_105",
+    "chapter": "1",
+    "section": "Случай в отеле",
+    "title": "ПРИМЕР — Случай в отеле",
+    "description": "Социальная инженерия в гостинице",
+    "text": "Я забыл ключ от номера, подскажите код.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_106",
+    "chapter": "2",
+    "section": "Ссылки в документах",
+    "title": "ПРИМЕР — Ссылка в документах",
+    "description": "Встроенная ссылка в Word/PDF",
+    "text": "Документ содержит скрытую ссылку.",
+    "type": "массовая",
+    "malicious_action": "фишинговая ссылка"
+  },
+  {
+    "id": "ex_107",
+    "chapter": "3",
+    "section": "Пентест тюрьмы",
+    "title": "ПРИМЕР — Пентест тюрьмы",
+    "description": "Реальный пример пентеста",
+    "text": "Проникновение на территорию исправительного учреждения.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_108",
+    "chapter": "1",
+    "section": "Аудио-deepfake",
+    "title": "ПРИМЕР — Аудио-deepfake",
+    "description": "Голосовой deepfake в мессенджере",
+    "text": "Голос директора: «Срочно переведи 500 тыс.»",
+    "type": "таргетированная",
+    "malicious_action": "голосовой deepfake"
+  },
+  {
+    "id": "ex_109",
+    "chapter": "2",
+    "section": "Фейковая капча",
+    "title": "ПРИМЕР — Фейковая капча и предупреждение о cookie",
+    "description": "Капча перед вредоносной страницей",
+    "text": "Подтвердите, что вы не робот.",
+    "type": "массовая",
+    "malicious_action": "фишинг"
+  },
+  {
+    "id": "ex_110",
+    "chapter": "1",
+    "section": "Персонализированный сайт",
+    "title": "ПРИМЕР — Персонализированный сайт",
+    "description": "Сайт с именем сотрудника",
+    "text": "ivanov.company-update.ru",
+    "type": "таргетированная",
+    "malicious_action": "фишинг"
+  },
+  {
+    "id": "ex_111",
+    "chapter": "3",
+    "section": "Комбинирование",
+    "title": "ПРИМЕР — Комбинированная атака",
+    "description": "Email + звонок + USB",
+    "text": "Комбинация нескольких векторов.",
+    "type": "таргетированная",
+    "malicious_action": "многоуровневая атака"
+  },
+  {
+    "id": "ex_112",
+    "chapter": "2",
+    "section": "Неактивные ссылки",
+    "title": "ПРИМЕР — Неактивные ссылки",
+    "description": "Ссылка активируется позже",
+    "text": "Ссылка станет активной через 10 минут.",
+    "type": "массовая",
+    "malicious_action": "фишинговая ссылка"
+  },
+  {
+    "id": "ex_113",
+    "chapter": "1",
+    "section": "Find trap с помощью звонков",
+    "title": "ПРИМЕР — Find trap с помощью звонков",
+    "description": "Жертва сама звонит",
+    "text": "Позвоните нам для подтверждения.",
+    "type": "таргетированная",
+    "malicious_action": "find trap"
+  },
+  {
+    "id": "ex_114",
+    "chapter": "3",
+    "section": "Продажа фиктивного сертификата",
+    "title": "ПРИМЕР — Продажа фиктивного сертификата",
+    "description": "Обман через продажу",
+    "text": "Купите сертификат безопасности по специальной цене.",
+    "type": "таргетированная",
+    "malicious_action": "мошенничество"
+  },
+  {
+    "id": "ex_115",
+    "chapter": "1",
+    "section": "Комментарии",
+    "title": "ПРИМЕР — Комментарии под постом",
+    "description": "Атака через комментарии",
+    "text": "Напишите в комментариях свой email для получения материала.",
+    "type": "массовая",
+    "malicious_action": "data-phishing"
+  },
+  {
+    "id": "ex_116",
+    "chapter": "3",
+    "section": "Обход системы",
+    "title": "ПРИМЕР — Обход системы",
+    "description": "Обход физической охраны",
+    "text": "Пример обхода системы контроля доступа.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_117",
+    "chapter": "2",
+    "section": "Ссылки в поддоменах",
+    "title": "ПРИМЕР — Сращивание с протоколом",
+    "description": "https://secure.bank.ru@fake.ru",
+    "text": "https://secure.bank.ru@fake.ru",
+    "type": "массовая",
+    "malicious_action": "фишинговая ссылка"
+  },
+  {
+    "id": "ex_118",
+    "chapter": "1",
+    "section": "Видео без видео",
+    "title": "ПРИМЕР — Видео без видео",
+    "description": "Аудио-сообщение",
+    "text": "Голосовое сообщение от руководителя.",
+    "type": "таргетированная",
+    "malicious_action": "голосовой deepfake"
+  },
+  {
+    "id": "ex_119",
+    "chapter": "3",
+    "section": "Случай в отеле",
+    "title": "ПРИМЕР — Случай в отеле",
+    "description": "Социальная инженерия в гостинице",
+    "text": "Я забыл ключ от номера, подскажите код.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_120",
+    "chapter": "1",
+    "section": "Легализованная СИ",
+    "title": "ПРИМЕР — Отправили к вам",
+    "description": "Легализация через пересылку",
+    "text": "Коллега переслал ваш контакт.",
+    "type": "смешанная",
+    "malicious_action": "сбор данных"
+  }
+] [
+  {
+    "id": "ex_121",
+    "chapter": "3",
+    "section": "Истории для вдохновения",
+    "title": "ПРИМЕР — История для вдохновения: журналист HBO",
+    "description": "Реальный кейс социальной инженерии на macOS",
+    "text": "Журналист HBO был взломан через социальную инженерию.",
+    "type": "таргетированная",
+    "malicious_action": "оффлайн + онлайн комбинация"
+  },
+  {
+    "id": "ex_122",
+    "chapter": "3",
+    "section": "Истории для вдохновения",
+    "title": "ПРИМЕР — Неприступная крепость",
+    "description": "Проникновение в высокозащищённый объект",
+    "text": "Пример обхода всех уровней физической защиты.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_123",
+    "chapter": "1",
+    "section": "Глава 1 — Онлайн-атаки",
+    "title": "ПРИМЕР — Финальный сценарий email-MITM",
+    "description": "Атака «человек посередине»",
+    "text": "Хакер перехватывает переписку между двумя компаниями.",
+    "type": "таргетированная",
+    "malicious_action": "BEC + MITM"
+  },
+  {
+    "id": "ex_124",
+    "chapter": "2",
+    "section": "Технологические трюки",
+    "title": "ПРИМЕР — Финальная маскировка ссылок",
+    "description": "Все виды обфускации в одном",
+    "text": "https://bank.ru‌/‌@‌/update (максимальная обфускация)",
+    "type": "массовая",
+    "malicious_action": "фишинговая ссылка"
+  },
+  {
+    "id": "ex_125",
+    "chapter": "3",
+    "section": "Комбинирование",
+    "title": "ПРИМЕР — Полная комбинированная атака",
+    "description": "Email + звонок + USB + физический проход",
+    "text": "Многоэтапная атака от первого контакта до доступа.",
+    "type": "таргетированная",
+    "malicious_action": "комплексная атака"
+  },
+  {
+    "id": "ex_126",
+    "chapter": "1",
+    "section": "Глава 1 — Заключительные примеры",
+    "title": "ПРИМЕР — Фейковое интервью",
+    "description": "Рекрутинговая атака",
+    "text": "Мы проводим интервью на позицию… Пришлите резюме по ссылке.",
+    "type": "таргетированная",
+    "malicious_action": "data-phishing"
+  },
+  {
+    "id": "ex_127",
+    "chapter": "2",
+    "section": "Глава 2 — Заключительные трюки",
+    "title": "ПРИМЕР — Excel-файл онлайн",
+    "description": "Онлайн-документ с макросом",
+    "text": "Отчёт в Google Sheets. Откройте и разрешите редактирование.",
+    "type": "массовая",
+    "malicious_action": "вредоносный онлайн-файл"
+  },
+  {
+    "id": "ex_128",
+    "chapter": "3",
+    "section": "Глава 3 — Финальные кейсы",
+    "title": "ПРИМЕР — Пентест тюрьмы (полная версия)",
+    "description": "Полный реальный кейс",
+    "text": "Детальный пример пентеста охраняемого объекта.",
+    "type": "оффлайн",
+    "malicious_action": "физический доступ"
+  },
+  {
+    "id": "ex_129",
+    "chapter": "1",
+    "section": "Глава 1 — Итоговый пример",
+    "title": "ПРИМЕР — 10 000 сценариев в действии",
+    "description": "Генератор онлайн-СИ в работе",
+    "text": "Автоматически сгенерированный персонализированный сценарий.",
+    "type": "таргетированная",
+    "malicious_action": "автоматизированная СИ"
+  },
+  {
+    "id": "ex_130",
+    "chapter": "3",
+    "section": "Глава 3 — Заключение",
+    "title": "ПРИМЕР 130 — Самый сложный кейс",
+    "description": "Комбинированная онлайн + оффлайн атака",
+    "text": "Полный цикл от первого контакта до компрометации.",
+    "type": "таргетированная",
+    "malicious_action": "комплексная атака"
+  }
+];
+
+        // АВТО-ПАТЧ: Расчет векторов для примеров без разметки
+        const SE_DATABASE = RAW_DATABASE.map(ex => {
+            if (ex.psychological_features) return ex;
+            const t = (ex.text + " " + ex.title + " " + ex.section).toLowerCase();
+            return {
+                ...ex,
+                psychological_features: {
+                    pressure_sensitivity: t.includes('сокращен') || t.includes('взлом') || t.includes('штраф') ? 0.9 : 0.5,
+                    deception_appeal: ex.type === 'таргетированная' ? 0.85 : 0.6,
+                    flattery_appeal: t.includes('преми') || t.includes('директор') ? 0.8 : 0.3,
+                    empathy_exploitation: t.includes('помог') || t.includes('ошибк') ? 0.85 : 0.4,
+                    social_interaction_level: ex.type === 'оффлайн' || t.includes('звон') ? 0.9 : 0.4,
+                    technical_complexity: ex.malicious_action.includes('макрос') ? 0.8 : 0.3,
+                    creativity_required: t.includes('deepfake') || ex.type === 'оффлайн' ? 0.85 : 0.5,
+                    aggression_level: t.includes('срочно') ? 0.8 : 0.3,
+                    urgency_level: t.includes('событийн') || t.includes('взлом') ? 0.9 : 0.5,
+                    find_trap_potential: ex.malicious_action.includes('find trap') ? 0.95 : 0.4
+                }
+            };
+        });
 
         function profilerApp() {
             return {
-                context: {},
-                calculateContextualMath() {},
-                renderChart() {},
-                downloadPDF() {},
-                copyPrompt() {},
-                parseProfileAndRecommend() {},
-                // Auto-patcher for SE_DATABASE with psychological features
-                SE_DATABASE: [],
-                patchDatabase() {
-                    // Auto-patch method for SE_DATABASE with features
-                }
+                step: 1, comments: '', grokResponse: '', promptCopied: false, data: null, errorMsg: '', animateBars: false, chartInstance: null, recommendedAttacks: [],
+                context: { name: '', age: '', job: '', location: '', family: 'Неизвестно', hobbies: '', techLevel: 'medium', hackedBefore: false, channels: ['Email', 'Telegram'] },
+
+                initApp() {},
+
+                cleanLogs() { if (this.comments) this.comments = this.comments.replace(/\[\d{2}\.\d{2}\.\d{4}\s\d{2}:\d{2}\]/g, '').replace(/^[A-Za-zА-Яа-яЁё0-9_ -]{2,30}:/gm, '').trim(); },
+
+                copyPrompt() {
+                    this.errorMsg = '';
+                    if (!this.comments || this.comments.length < 20) { this.errorMsg = "Слишком мало сырых данных!"; return; }
+                    const p = `Act as an elite psychological profiler. Analyze the target "${this.context.name}". Demographics: Age ${this.context.age||'N/A'}, Job: ${this.context.job||'N/A'}.\nRaw data:\n"""\n${this.comments}\n"""\nRespond STRICTLY with JSON (in Russian). Schema:\n{ "behavioral_archetype": "Доминатор/Аналитик/Оппортунист/Нарцисс/Скептик/Дипломат/Идеалист/Авантюрист", "scientific_mapping": "...", "bigFive": {"Openness": 0-100, "Conscientiousness": 0-100, "Extraversion": 0-100, "Agreeableness": 0-100, "Neuroticism": 0-100}, "darkTriad": {"Narcissism": 0-100, "Machiavellianism": 0-100, "Psychopathy": 0-100}, "vulnerabilities": ["..."], "communication_style": {"primary_mode": "...", "influence_strategy": "..."} }`;
+                    navigator.clipboard.writeText(p).then(() => this.promptCopied = true);
+                },
+
+                parseProfileAndRecommend() {
+                    this.errorMsg = '';
+                    try {
+                        let j = this.grokResponse.trim();
+                        j = j.substring(j.indexOf('{'), j.lastIndexOf('}') + 1);
+                        this.data = JSON.parse(j);
+                        this.calculateContextualMath();
+                        this.goToStep2();
+                    } catch(e) { this.errorMsg = "Неверный формат JSON от ИИ."; }
+                },
+
+                // УМНАЯ МАТЕМАТИКА СО ВСЕМИ ДЕМОГРАФИЧЕСКИМИ ПРИЗНАКАМИ
+                calculateContextualMath() {
+                    // Базовый вектор от ИИ
+                    let v = [
+                        this.data.bigFive.Neuroticism / 100,           // 0: pressure
+                        this.data.darkTriad.Machiavellianism / 100,    // 1: deception
+                        this.data.darkTriad.Narcissism / 100,          // 2: flattery
+                        (100 - this.data.bigFive.Agreeableness) / 100, // 3: empathy exploit
+                        this.data.bigFive.Extraversion / 100,          // 4: social
+                        0.5,                                           // 5: tech
+                        this.data.bigFive.Openness / 100,              // 6: creativity
+                        this.data.darkTriad.Psychopathy / 100,         // 7: aggression
+                        (this.data.bigFive.Neuroticism + 20) / 100,    // 8: urgency
+                        0.5                                            // 9: find_trap
+                    ];
+
+                    // === ПРИМЕНЕНИЕ КОНТЕКСТА ===
+                    // 1. Возраст
+                    if (this.context.age > 50) { v[0] *= 1.3; v[8] *= 1.2; v[5] *= 0.6; } // Старше -> боятся давления, ниже технарь
+                    if (this.context.age < 25) { v[5] *= 1.3; } // Молодые -> выше тех. сложность атаки
+
+                    // 2. Должность
+                    let job = this.context.job.toLowerCase();
+                    if (job.includes('бух') || job.includes('фин')) { v[1] *= 1.4; v[8] *= 1.2; } // BEC, Счета
+                    if (job.includes('it') || job.includes('админ') || job.includes('разработ')) { v[5] *= 1.5; v[0] *= 0.6; } // Не ведутся на тупое давление
+                    if (job.includes('директор') || job.includes('ceo') || job.includes('топ')) { v[2] *= 1.5; } // Удар по эго, Китовые атаки
+
+                    // 3. Семья
+                    if (this.context.family === 'В браке / Дети') { v[3] *= 1.4; } // Эмпатия, угроза семье
+
+                    // 4. Грамотность
+                    if (this.context.techLevel === 'low') { v[5] *= 0.4; } 
+                    if (this.context.techLevel === 'high') { v[5] *= 1.4; }
+
+                    // 5. Предыдущие инциденты (Пуганая ворона)
+                    if (this.context.hackedBefore) { v[0] *= 1.4; v[9] *= 1.3; } // Высокое давление или Find Trap (чтобы сама искала)
+
+                    // 6. Хобби
+                    if (this.context.hobbies.length > 5) { v[6] *= 1.3; v[9] *= 1.2; } // Можно креативить фишинг по хобби
+
+                    // 7. Каналы и соцсети
+                    if (this.context.channels.includes('VK') || this.context.channels.includes('LinkedIn')) { v[4] *= 1.3; } // Клонирование страниц
+
+                    // Нормализация вектора (не больше 1.0)
+                    v = v.map(val => Math.min(val, 1.0));
+
+                    // Расчет косинусного сходства
+                    const cosineSim = (a, b) => { let dot=0, nA=0, nB=0; for(let i=0;i<10;i++){ dot+=a[i]*b[i]; nA+=a[i]*a[i]; nB+=b[i]*b[i]; } return dot/(Math.sqrt(nA)*Math.sqrt(nB)); };
+
+                    let scored = SE_DATABASE.map(ex => {
+                        let exVec = Object.values(ex.psychological_features);
+                        let score = cosineSim(v, exVec);
+                        
+                        // Генерация объяснения почему атака подошла
+                        let exp = [];
+                        if (exVec[0] > 0.7 && v[0] > 0.7) exp.push("Высокая восприимчивость к давлению/страху (особенно с учетом должности/возраста).");
+                        if (exVec[5] > 0.7 && v[5] > 0.7) exp.push("Идеально для технически подкованной цели (обходит базовую защиту).");
+                        if (exVec[2] > 0.7 && v[2] > 0.7) exp.push("Эксплуатация статуса и тщеславия.");
+                        if (exVec[4] > 0.7 && v[4] > 0.7) exp.push("Хорошо ложится на активный социальный профиль (соцсети/мессенджеры).");
+                        if (this.context.location && ex.text.toLowerCase().includes('событийн')) exp.push("Локальная/событийная привязка.");
+                        if (exp.length === 0) exp.push("Оптимальное математическое совпадение с психотипом.");
+
+                        return { ...ex, score, explanation: exp.join(" ") };
+                    });
+
+                    // Исключаем атаки по недоступным каналам (очень грубый фильтр)
+                    if (!this.context.channels.includes('Email')) {
+                        scored = scored.filter(a => !a.malicious_action.toLowerCase().includes('вложение'));
+                    }
+
+                    this.recommendedAttacks = scored.sort((a, b) => b.score - a.score).slice(0, 3);
+                },
+
+                goToStep2() { this.step = 2; this.$nextTick(() => { this.renderChart(); setTimeout(() => this.animateBars = true, 100); }); },
+                renderChart() { if (this.chartInstance) this.chartInstance.destroy(); this.chartInstance = new Chart(document.getElementById('radarChart'), { type: 'radar', data: { labels: ['Открытость', 'Добросовестность', 'Экстраверсия', 'Доброжелательность', 'Нейротизм'], datasets: [{ data: [this.data.bigFive.Openness, this.data.bigFive.Conscientiousness, this.data.bigFive.Extraversion, this.data.bigFive.Agreeableness, this.data.bigFive.Neuroticism], backgroundColor: 'rgba(0, 255, 157, 0.2)', borderColor: '#00FF9D', pointBackgroundColor: '#00FF9D', borderWidth: 2 }] }, options: { scales: { r: { angleLines: {color: '#2d3342'}, grid: {color: '#2d3342'}, pointLabels: {color: '#e5e7eb'}, ticks: {display: false, min: 0, max: 100} } }, plugins: {legend: {display: false}} } }); },
+                getArchetypeIcon() { const m = {'доминатор':'fa-chess-king', 'аналитик':'fa-microchip', 'оппортунист':'fa-mask', 'нарцисс':'fa-star', 'скептик':'fa-shield-halved', 'дипломат':'fa-handshake-angle', 'идеалист':'fa-lightbulb', 'авантюрист':'fa-dice'}; return m[(this.data?.behavioral_archetype||'').toLowerCase()] || 'fa-user-astronaut'; },
+                translateKey(k) { return {'Narcissism':'Нарциссизм','Machiavellianism':'Макиавеллизм','Psychopathy':'Психопатия'}[k]||k; },
+                downloadPDF() { html2pdf().set({margin: 10, filename: `Dossier_${this.context.name || 'Target'}.pdf`, html2canvas: {scale: 2, backgroundColor: '#0f1115'}, jsPDF: {format: 'a4'}}).from(document.getElementById('export-content')).save(); },
+                resetToStart() { this.step = 1; this.data = null; this.animateBars = false; this.grokResponse = ''; this.context = { name: '', age: '', job: '', location: '', family: 'Неизвестно', hobbies: '', techLevel: 'medium', hackedBefore: false, channels: ['Email', 'Telegram'] }; }
             }
         }
     </script>
